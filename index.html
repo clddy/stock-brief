@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>미국주식 브리핑</title>
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --ink: #1d1d1f;
+    --ink2: #6e6e73;
+    --ink3: #aeaeb2;
+    --line: rgba(0,0,0,.08);
+    --up: #d70015;
+    --down: #0066cc;
+    --up-bg: rgba(215,0,21,.09);
+    --down-bg: rgba(0,102,204,.09);
+    --header-bg: rgba(245,245,247,.72);
+    --shadow: 0 1px 3px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.05);
+    --accent: #0071e3;
+    --cost: #c7c7cc;
+    --profit: #34C759;
+    --outflow: #FF3B30;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --card: #1c1c1e;
+      --ink: #f5f5f7;
+      --ink2: #98989d;
+      --ink3: #636366;
+      --line: rgba(255,255,255,.1);
+      --up: #ff453a;
+      --down: #0a84ff;
+      --up-bg: rgba(255,69,58,.14);
+      --down-bg: rgba(10,132,255,.14);
+      --header-bg: rgba(0,0,0,.6);
+      --shadow: 0 1px 3px rgba(0,0,0,.4);
+      --accent: #0a84ff;
+      --cost: #48484a;
+      --profit: #30D158;
+      --outflow: #FF453A;
+    }
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable", "Segoe UI", Roboto, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg); color: var(--ink);
+    font-size: 15px; line-height: 1.45;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  header {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--header-bg);
+    backdrop-filter: blur(20px) saturate(1.8);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8);
+    border-bottom: 1px solid var(--line);
+  }
+  .hwrap {
+    max-width: 1140px; margin: 0 auto; padding: 14px 24px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  h1 { font-size: 21px; font-weight: 700; letter-spacing: -.02em; }
+  .meta { font-size: 12.5px; color: var(--ink2); }
+  .counts { display:flex; gap:10px; font-size:13px; font-weight:600; }
+  .counts .u { color: var(--up); }
+  .counts .d { color: var(--down); }
+  .counts .f { color: var(--ink2); }
+  .spacer { flex: 1; }
+  input[type=search] {
+    appearance: none; border: none; outline: none;
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--line);
+    padding: 7px 14px; border-radius: 99px; font-size: 14px; width: 190px;
+    font-family: inherit;
+  }
+  input[type=search]:focus { border-color: var(--accent); }
+  .seg {
+    display: flex; background: var(--card); border: 1px solid var(--line);
+    border-radius: 99px; overflow: hidden;
+  }
+  .seg button {
+    appearance: none; border: none; background: none; color: var(--ink2);
+    font: inherit; font-size: 13px; font-weight: 600; padding: 7px 14px; cursor: pointer;
+  }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .favbtn {
+    appearance: none; border: 1px solid var(--line); background: var(--card); color: var(--ink2);
+    font: inherit; font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 99px;
+    cursor: pointer; display: flex; align-items: center; gap: 5px;
+  }
+  .favbtn.on { background: #FFCC00; color: #3a2f00; border-color: #FFCC00; }
+  .fav { cursor: pointer; color: var(--ink3); line-height: 1; user-select: none; }
+  .fav.on { color: #FFCC00; }
+  .card .fav { font-size: 16px; }
+  .mhead .fav { font-size: 20px; }
+
+  main { max-width: 1140px; margin: 0 auto; padding: 24px; }
+
+  .movers { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 26px; }
+  .movers::-webkit-scrollbar { height: 0; }
+  .chip {
+    flex: 0 0 auto; display: flex; align-items: baseline; gap: 8px;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 9px 14px; box-shadow: var(--shadow);
+    cursor: pointer;
+  }
+  .chip b { font-size: 14px; }
+  .chip span { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  h2 {
+    font-size: 17px; font-weight: 700; letter-spacing: -.01em;
+    margin: 30px 0 12px; display: flex; align-items: baseline; gap: 8px;
+  }
+  h2 small { font-size: 12px; font-weight: 500; color: var(--ink3); }
+
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+    gap: 12px;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 18px; padding: 14px 16px 12px;
+    box-shadow: var(--shadow);
+    transition: transform .15s ease;
+    cursor: pointer;
+  }
+  .card:hover { transform: translateY(-1px); }
+  .card .top { display: flex; align-items: baseline; gap: 8px; }
+  .card .tkr { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+  .card .kr {
+    font-size: 12px; color: var(--ink2);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+  }
+  .card .row2 { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+  .card .price { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .pill {
+    font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+    padding: 3px 9px; border-radius: 99px;
+  }
+  .pill.u { color: var(--up); background: var(--up-bg); }
+  .pill.d { color: var(--down); background: var(--down-bg); }
+  .spark { display: block; width: 100%; height: 44px; margin-top: 8px; cursor: crosshair; }
+  .card .m1 { font-size: 11px; color: var(--ink3); margin-top: 4px; }
+  .card .m1 b.u { color: var(--up); } .card .m1 b.d { color: var(--down); }
+  .newsdot {
+    display: inline-block; width: 6px; height: 6px; border-radius: 99px;
+    background: var(--accent); vertical-align: 2px;
+  }
+  .cardnews { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; display: none; }
+  .card.open .cardnews { display: block; }
+  .cardnews a { display: block; font-size: 12px; color: var(--ink2); margin-bottom: 6px; }
+  .cardnews a:hover { color: var(--accent); }
+  .cardnews .src { color: var(--ink3); font-size: 11px; }
+
+  .gnews {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 18px; padding: 14px 18px; box-shadow: var(--shadow);
+    margin-bottom: 12px;
+    column-count: 2; column-gap: 28px;
+  }
+  @media (max-width: 760px) { .gnews { column-count: 1; } }
+  .gnews a {
+    display: block; break-inside: avoid;
+    font-size: 13px; padding: 5px 0;
+  }
+  .gnews a:hover { color: var(--accent); }
+  .gnews .src { font-size: 11px; color: var(--ink3); display: block; }
+
+  .themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+  .theme {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 18px; padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .theme h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+  .theme a { display: block; font-size: 13px; margin-bottom: 9px; color: var(--ink); }
+  .theme a:hover { color: var(--accent); }
+  .theme .src { font-size: 11px; color: var(--ink3); display: block; margin-top: 1px; }
+  .theme a .why, .gnews a .why { display: block; font-size: 11.5px; color: var(--accent); margin-top: 1px; }
+  .theme .empty { font-size: 12.5px; color: var(--ink3); }
+
+  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); }
+  th, td { text-align: right; padding: 10px 14px; font-size: 13.5px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  th { color: var(--ink2); font-weight: 600; font-size: 12px; }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) { text-align: left; }
+  td.u { color: var(--up); font-weight: 600; } td.d { color: var(--down); font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+
+  /* ---- detail modal ---- */
+  .backdrop {
+    position: fixed; inset: 0; z-index: 80; display: none;
+    background: rgba(0,0,0,.35);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    align-items: flex-start; justify-content: center;
+    padding: 40px 16px; overflow-y: auto;
+  }
+  .backdrop.show { display: flex; }
+  .modal {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 22px; width: 100%; max-width: 720px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.3); overflow: hidden;
+  }
+  .modal .mhead {
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 20px 24px 14px; border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; background: var(--card);
+  }
+  .modal .mhead .tkr { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+  .modal .mhead .kr { font-size: 14px; color: var(--ink2); flex: 1; }
+  .modal .mhead .price { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .modal .mhead .pill { font-size: 13px; }
+  .modal .mclose {
+    appearance: none; border: none; background: var(--bg); color: var(--ink2);
+    width: 30px; height: 30px; border-radius: 99px; font-size: 16px; cursor: pointer; line-height: 1;
+  }
+  .mbody { padding: 18px 24px 26px; }
+  .mbody h4 {
+    font-size: 14px; font-weight: 700; margin: 20px 0 4px;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .mbody h4:first-child { margin-top: 0; }
+  .mbody h4 small { font-size: 11px; font-weight: 500; color: var(--ink3); }
+  .revchart { width: 100%; height: 250px; margin-top: 10px; display: block; }
+  .chart-legend { display: flex; gap: 16px; font-size: 12px; color: var(--ink2); margin-top: 6px; }
+  .chart-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .segrow { display: grid; grid-template-columns: 130px 1fr 118px; align-items: center; gap: 10px; margin: 7px 0; }
+  .segrow .seglabel { font-size: 12.5px; line-height: 1.2; }
+  .segrow .seglabel .segen { display: block; font-size: 10px; color: var(--ink3); }
+  .segrow .segbar { height: 16px; background: var(--bg); border-radius: 5px; overflow: hidden; }
+  .segrow .segbar i { display: block; height: 100%; border-radius: 5px; }
+  .segrow .segval { text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .segrow .segval b { font-size: 13px; }
+  .fintable { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12.5px; }
+  .fintable th, .fintable td { padding: 7px 8px; text-align: right; font-variant-numeric: tabular-nums; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .fintable th { color: var(--ink2); font-weight: 600; font-size: 11.5px; }
+  .fintable td:first-child, .fintable th:first-child { text-align: left; color: var(--ink); font-weight: 600; }
+  .fintable .qcol { color: var(--accent); }
+  .fintable tr:last-child td { border-bottom: none; }
+  .fintable td.neg { color: var(--down); }
+  .balance-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
+  .balance-grid .b { background: var(--bg); border-radius: 12px; padding: 10px 12px; }
+  .balance-grid .b .lbl { font-size: 11px; color: var(--ink2); }
+  .balance-grid .b .val { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .mnews a { display: block; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .mnews a:last-child { border-bottom: none; }
+  .mnews .ko { font-size: 13.5px; color: var(--ink); }
+  .mnews .why { font-size: 12px; color: var(--accent); margin-top: 2px; }
+  .mnews .en { font-size: 11px; color: var(--ink3); margin-top: 2px; }
+  .mnews a:hover .ko { color: var(--accent); }
+  .fin-missing { font-size: 12.5px; color: var(--ink3); margin-top: 8px; }
+
+  #tooltip {
+    position: fixed; z-index: 99; pointer-events: none; display: none;
+    background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow);
+    border-radius: 10px; padding: 6px 10px; font-size: 12px; font-variant-numeric: tabular-nums;
+  }
+  #tooltip b { display: block; }
+
+  footer { max-width: 1140px; margin: 40px auto 30px; padding: 0 24px; font-size: 12px; color: var(--ink3); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div class="hwrap">
+    <h1>미국주식 브리핑</h1>
+    <div>
+      <div class="counts"><span class="u">▲ <span id="cntUp">0</span></span><span class="d">▼ <span id="cntDown">0</span></span><span class="f">— <span id="cntFlat">0</span></span></div>
+      <div class="meta" id="meta"></div>
+    </div>
+    <div class="spacer"></div>
+    <input type="search" id="q" placeholder="종목 검색">
+    <div class="seg" id="viewSeg">
+      <button data-v="cards" class="on">카드</button>
+      <button data-v="table">테이블</button>
+    </div>
+    <button id="favBtn" class="favbtn" title="즐겨찾기만 보기">★ 즐겨찾기</button>
+  </div>
+</header>
+
+<main>
+  <div id="movers" class="movers"></div>
+  <h2>관심 테마 뉴스 <small>최근 72시간 · Google News</small></h2>
+  <div class="themes" id="themes"></div>
+  <div id="favEmpty" class="hidden" style="text-align:center;color:var(--ink3);padding:48px 20px;font-size:14px">즐겨찾기한 종목이 없습니다.<br>카드나 상세화면의 별(<span style="color:#FFCC00">★</span>)을 눌러 추가하세요.</div>
+  <div id="cardsView"></div>
+  <div id="tableView" class="hidden" style="margin-top:30px"></div>
+</main>
+
+<div id="tooltip"></div>
+
+<div class="backdrop" id="backdrop"><div class="modal" id="modal"></div></div>
+
+<footer>
+  <span id="ver"></span>
+  데이터: Yahoo Finance(지연 시세 가능) · 뉴스: Google News RSS · 매일 아침 자동 갱신<br>
+  표시 색상: <b style="color:var(--up)">빨강 = 상승</b> · <b style="color:var(--down)">파랑 = 하락</b> · 스파크라인은 최근 1개월 종가. 투자 판단은 본인 책임.
+</footer>
+
+<script>document.write('<scr'+'ipt src="financials.js?t='+Date.now()+'"><\/scr'+'ipt>');</script>
+<script>document.write('<scr'+'ipt src="segments.js?t='+Date.now()+'"><\/scr'+'ipt>');</script>
+<script>document.write('<scr'+'ipt src="version.js?t='+Date.now()+'"><\/scr'+'ipt>');</script>
+<script>document.write('<scr'+'ipt src="favorites.js?t='+Date.now()+'"><\/scr'+'ipt>');</script>
+<script>document.write('<scr'+'ipt src="data.js?t='+Date.now()+'"><\/scr'+'ipt>');</script>
+<script>
+const D = window.STOCK_DATA;
+const $ = s => document.querySelector(s);
+const fmt = n => n.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const sign = c => c > 0 ? "u" : c < 0 ? "d" : "f";
+const chgTxt = c => (c > 0 ? "+" : "") + c.toFixed(2) + "%";
+
+// ---- header meta
+const all = D.groups.flatMap(g => g.tickers);
+$("#meta").textContent = `기준 ${all[0]?.asof ?? ""} 종가 · 수집 ${D.generated_at.replace("T"," ")}`;
+if (window.STOCK_VERSION) {
+  $("#ver").innerHTML = `<b style="color:var(--ink2)">v${window.STOCK_VERSION.build}</b> · ${window.STOCK_VERSION.date} 업데이트 · `;
+}
+$("#cntUp").textContent = all.filter(x => x.chg > 0).length;
+$("#cntDown").textContent = all.filter(x => x.chg < 0).length;
+$("#cntFlat").textContent = all.filter(x => x.chg === 0).length;
+
+// ---- movers strip
+const movers = [...all].sort((a,b) => Math.abs(b.chg) - Math.abs(a.chg)).slice(0, 10);
+$("#movers").innerHTML = movers.map(x =>
+  `<div class="chip" data-goto="${x.t}"><b>${x.t}</b><span class="${sign(x.chg)}" style="color:var(--${x.chg>=0?"up":"down"})">${chgTxt(x.chg)}</span></div>`
+).join("");
+$("#movers").addEventListener("click", e => {
+  const chip = e.target.closest(".chip"); if (!chip) return;
+  openDetail(chip.dataset.goto);
+});
+
+// ---- news helpers (Korean-first)
+const FIN = window.STOCK_FIN || {};
+const SEG = window.STOCK_SEG || {};
+const SEG_COLORS = ["#5E5CE6", "#0A84FF", "#64D2FF", "#FF9F0A", "#FFD60A", "#BF5AF2", "#8E8E93"];
+const koTitle = n => n.ko || n.title;
+
+// ---- 즐겨찾기 (localStorage). 최초 실행 시 보유종목(favorites.js, 로컬 전용)으로 시드
+const FAVS = new Set((() => {
+  try {
+    const stored = localStorage.getItem("sb_favs");
+    if (stored === null && Array.isArray(window.DEFAULT_FAVS)) {
+      localStorage.setItem("sb_favs", JSON.stringify(window.DEFAULT_FAVS));
+      return window.DEFAULT_FAVS;
+    }
+    return JSON.parse(stored || "[]");
+  } catch (e) { return []; }
+})());
+let favOnly = false;
+function saveFavs() { try { localStorage.setItem("sb_favs", JSON.stringify([...FAVS])); } catch (e) {} }
+function starHTML(t) { return `<span class="fav ${FAVS.has(t) ? "on" : ""}" data-fav="${t}" title="즐겨찾기">${FAVS.has(t) ? "★" : "☆"}</span>`; }
+function syncStars(t) {
+  document.querySelectorAll(`.fav[data-fav="${t}"]`).forEach(el => {
+    const on = FAVS.has(t); el.classList.toggle("on", on); el.textContent = on ? "★" : "☆";
+  });
+}
+function toggleFav(t) {
+  FAVS.has(t) ? FAVS.delete(t) : FAVS.add(t);
+  saveFavs(); syncStars(t);
+  if (favOnly) applyFilter();
+}
+
+function segmentHTML(tk) {
+  const s = SEG[tk]; if (!s || !s.seg || !s.seg.length) return "";
+  const total = s.seg.reduce((a, x) => a + x[2], 0) || 1;
+  const rows = s.seg.map((x, i) => {
+    const [ko, en, val] = x;
+    const pct = val / total * 100;
+    const col = SEG_COLORS[i % SEG_COLORS.length];
+    return `<div class="segrow">
+      <div class="seglabel">${ko}<span class="segen">${en}</span></div>
+      <div class="segbar"><i style="width:${pct.toFixed(1)}%;background:${col}"></i></div>
+      <div class="segval"><b>${pct.toFixed(0)}%</b> · ${cur(val * 1e6)}</div>
+    </div>`;
+  }).join("");
+  return `<h4>사업부문별 매출 <small>${s.period} · ${s.by} · 수작업 데이터</small></h4>${rows}
+    <div style="font-size:11px;color:var(--ink3);margin-top:6px">공시(연차보고서) 기준 손입력. 최신 분기와 다를 수 있음.</div>`;
+}
+function newsAnchor(n) {
+  const why = n.why ? `<span class="why">${n.why}</span>` : "";
+  const src = `<span class="src">${n.source}${n.time ? " · " + n.time.slice(5,10) : ""}</span>`;
+  return `<a href="${n.url}" target="_blank" rel="noopener">${koTitle(n)}${why}${src}</a>`;
+}
+
+// ---- theme news
+$("#themes").innerHTML = D.theme_news.map(th => `
+  <div class="theme"><h3>${th.name}</h3>${
+    th.items.length
+      ? th.items.map(newsAnchor).join("")
+      : `<div class="empty">최근 72시간 내 뉴스 없음</div>`
+  }</div>`).join("");
+
+// ---- sparkline
+function sparkSVG(x) {
+  const w = 240, h = 44, p = 3;
+  const v = x.spark, min = Math.min(...v), max = Math.max(...v), rng = (max - min) || 1;
+  const px = i => p + i * (w - 2*p) / (v.length - 1);
+  const py = c => h - p - (c - min) * (h - 2*p) / rng;
+  const line = v.map((c,i) => `${i?"L":"M"}${px(i).toFixed(1)},${py(c).toFixed(1)}`).join("");
+  const col = x.chg1m >= 0 ? "var(--up)" : "var(--down)";
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" data-t="${x.t}" preserveAspectRatio="none">
+    <path d="${line}L${w-p},${h}L${p},${h}Z" fill="${col}" opacity=".08" stroke="none"/>
+    <path d="${line}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+    <circle cx="${px(v.length-1)}" cy="${py(v[v.length-1])}" r="2.6" fill="${col}"/>
+  </svg>`;
+}
+
+// ---- cards
+const byT = {}; all.forEach(x => byT[x.t] = x);
+function cardHTML(x) {
+  const news = D.ticker_news[x.t];
+  return `<div class="card" id="c-${x.t}" data-ticker="${x.t}" data-search="${x.t.toLowerCase()} ${x.kr}">
+    <div class="top"><span class="tkr">${x.t}</span><span class="kr">${x.kr}</span>${news ? '<span class="newsdot" title="뉴스 있음"></span>' : ""}${starHTML(x.t)}</div>
+    <div class="row2"><span class="price">$${fmt(x.price)}</span><span class="pill ${sign(x.chg)==="d"?"d":"u"}" style="${x.chg===0?"color:var(--ink2);background:none":""}">${chgTxt(x.chg)}</span></div>
+    ${sparkSVG(x)}
+    <div class="m1">1개월 <b class="${x.chg1m>=0?"u":"d"}">${chgTxt(x.chg1m)}</b><span style="float:right;color:var(--ink3)">재무·뉴스 ›</span></div>
+  </div>`;
+}
+function groupNewsHTML(name) {
+  const items = (D.group_news || {})[name];
+  if (!items || !items.length) return "";
+  return `<div class="gnews">${items.map(newsAnchor).join("")}</div>`;
+}
+function renderCards() {
+  $("#cardsView").innerHTML = D.groups.map(g => {
+    const ts = [...g.tickers].sort((a,b) => b.chg - a.chg);
+    return `<section class="grp"><h2>${g.name} <small>${g.tickers.length}종목 · 섹터 뉴스</small></h2>${groupNewsHTML(g.name)}<div class="grid">${ts.map(cardHTML).join("")}</div></section>`;
+  }).join("");
+}
+renderCards();
+$("#cardsView").addEventListener("click", e => {
+  if (e.target.closest(".spark")) return;
+  const fav = e.target.closest(".fav");
+  if (fav) { e.stopPropagation(); toggleFav(fav.dataset.fav); return; }
+  const c = e.target.closest(".card");
+  if (c) openDetail(c.dataset.ticker);
+});
+
+// ---- table view
+$("#tableView").innerHTML = `<table><thead><tr>
+  <th>티커</th><th>이름</th><th>그룹</th><th>종가</th><th>전일比</th><th>1개월</th>
+</tr></thead><tbody>${
+  D.groups.flatMap(g => g.tickers.map(x => ({...x, g: g.name})))
+    .sort((a,b) => b.chg - a.chg)
+    .map(x => `<tr data-ticker="${x.t}" style="cursor:pointer" data-search="${x.t.toLowerCase()} ${x.kr}"><td><b>${x.t}</b></td><td>${x.kr}</td><td style="color:var(--ink2)">${x.g}</td><td>$${fmt(x.price)}</td><td class="${sign(x.chg)}">${chgTxt(x.chg)}</td><td class="${sign(x.chg1m)}">${chgTxt(x.chg1m)}</td></tr>`).join("")
+}</tbody></table>`;
+$("#tableView").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-ticker]");
+  if (tr) openDetail(tr.dataset.ticker);
+});
+
+// ---- view toggle
+$("#viewSeg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  document.querySelectorAll("#viewSeg button").forEach(x => x.classList.toggle("on", x === b));
+  $("#cardsView").classList.toggle("hidden", b.dataset.v !== "cards");
+  $("#tableView").classList.toggle("hidden", b.dataset.v !== "table");
+  applyFilter();
+});
+
+// ---- search + 즐겨찾기 필터 (통합)
+function applyFilter() {
+  const q = $("#q").value.trim().toLowerCase();
+  document.querySelectorAll("[data-search]").forEach(el => {
+    const t = el.dataset.ticker;
+    const okSearch = q === "" || el.dataset.search.includes(q);
+    const okFav = !favOnly || (t && FAVS.has(t));
+    el.classList.toggle("hidden", !(okSearch && okFav));
+  });
+  // 카드뷰: 보이는 카드가 없는 섹션(그룹) 통째로 숨김
+  document.querySelectorAll("#cardsView .grp").forEach(sec => {
+    sec.classList.toggle("hidden", !sec.querySelector(".card:not(.hidden)"));
+  });
+  // 빈 상태(즐겨찾기 필터인데 아무것도 없을 때)
+  const view = $("#cardsView").classList.contains("hidden") ? "#tableView" : "#cardsView";
+  const none = !document.querySelector(`${view} [data-ticker]:not(.hidden)`);
+  $("#favEmpty").classList.toggle("hidden", !(favOnly && none));
+}
+$("#q").addEventListener("input", applyFilter);
+$("#favBtn").addEventListener("click", () => {
+  favOnly = !favOnly;
+  $("#favBtn").classList.toggle("on", favOnly);
+  applyFilter();
+});
+
+// ---- detail modal
+const backdrop = $("#backdrop"), modal = $("#modal");
+function cur(v) {
+  if (v == null) return "—";
+  const a = Math.abs(v), s = v < 0 ? "-" : "";
+  if (a >= 1e12) return s + "$" + (a/1e12).toFixed(2) + "T";
+  if (a >= 1e9) return s + "$" + (a/1e9).toFixed(1) + "B";
+  if (a >= 1e6) return s + "$" + (a/1e6).toFixed(0) + "M";
+  return s + "$" + a.toFixed(0);
+}
+// 최근 회계연도 손익 흐름(워터폴): 어느 단계에서 얼마의 이익/비용이 발생하는지
+function incomeSteps(an) {
+  const i = an.periods.length - 1;  // 최신 회계연도
+  const g = k => (an[k] && an[k][i] != null) ? an[k][i] : null;
+  const rev = g("revenue"); if (rev == null || rev <= 0) return null;
+  const cost = g("costOfRevenue"), gross = g("grossProfit");
+  const rnd = g("rnd"), sga = g("sga"), op = g("operatingIncome");
+  const tax = g("tax"), net = g("netIncome");
+  const eps01 = rev * 0.01;
+  const steps = [{ label: "매출", kind: "total", val: rev }];
+  let base = rev;
+  if (cost != null && cost > 0 && gross != null) {
+    steps.push({ label: "매출원가", kind: "cost", val: cost });
+    steps.push({ label: "매출총이익", kind: "sub", val: gross });
+    base = gross;
+  }
+  if (op != null) {
+    const opex = base - op;
+    if ((rnd || 0) > 0 || (sga || 0) > 0) {
+      if ((rnd || 0) > 0) steps.push({ label: "R&D", kind: "cost", val: rnd });
+      if ((sga || 0) > 0) steps.push({ label: "판관비", kind: "cost", val: sga });
+      const other = opex - (rnd || 0) - (sga || 0);
+      if (other > eps01) steps.push({ label: "기타비용", kind: "cost", val: other });
+    } else if (opex > eps01) {
+      steps.push({ label: "영업비용", kind: "cost", val: opex });
+    }
+    steps.push({ label: "영업이익", kind: "sub", val: op });
+    if (net != null) {
+      const below = op - net;  // 세금 + 영업외 순액
+      if ((tax || 0) > 0) {
+        steps.push({ label: "법인세", kind: "cost", val: tax });
+        const rest = below - tax;
+        if (rest > eps01) steps.push({ label: "기타", kind: "cost", val: rest });
+        else if (rest < -eps01) steps.push({ label: "기타수익", kind: "gain", val: -rest });
+      } else if (below > eps01) {
+        steps.push({ label: "세금·기타", kind: "cost", val: below });
+      } else if (below < -eps01) {
+        steps.push({ label: "기타수익", kind: "gain", val: -below });
+      }
+      steps.push({ label: "순이익", kind: "total", val: net });
+    }
+  } else if (net != null) {  // 영업이익 미제공(은행 등): 매출→비용·세금→순이익
+    const ded = base - net;
+    if (ded > eps01) steps.push({ label: "비용·세금", kind: "cost", val: ded });
+    else if (ded < -eps01) steps.push({ label: "기타수익", kind: "gain", val: -ded });
+    steps.push({ label: "순이익", kind: "total", val: net });
+  }
+  return steps;
+}
+function waterfallSVG(an) {
+  const steps = incomeSteps(an); if (!steps) return "";
+  // 1차: 각 단계 막대의 top/bot 계산 (적자=음수 지원)
+  let running = 0;
+  const geo = steps.map(st => {
+    let top, bot, fill;
+    if (st.kind === "total" || st.kind === "sub") {
+      top = st.val; bot = 0; running = st.val;
+      fill = st.val < 0 ? "var(--outflow)" : "var(--profit)";
+    } else if (st.kind === "cost") {
+      top = running; bot = running - st.val; running = bot; fill = "var(--outflow)";
+    } else {  // gain
+      top = running + st.val; bot = running; running = top; fill = "var(--profit)";
+    }
+    return { st, top, bot, fill };
+  });
+  const vals = geo.flatMap(g => [g.top, g.bot]).concat(0);
+  const vMax = Math.max(...vals), vMin = Math.min(...vals), span = (vMax - vMin) || 1;
+  const n = steps.length;
+  const W = 700, H = 250, padT = 26, padB = 40;
+  const gap = W / n, bw = Math.min(58, gap * 0.6);
+  const y = v => padT + (1 - (v - vMin) / span) * (H - padT - padB);
+  const y0 = y(0);
+  let s = `<line x1="0" y1="${y0.toFixed(1)}" x2="${W}" y2="${y0.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`;
+  let prevX = null, prevY = null;
+  geo.forEach((g, k) => {
+    const cx = gap * k + gap / 2, x = cx - bw / 2;
+    const yTop = y(Math.max(g.top, g.bot)), yBot = y(Math.min(g.top, g.bot));
+    if (prevX != null) s += `<line x1="${prevX.toFixed(1)}" y1="${prevY.toFixed(1)}" x2="${x.toFixed(1)}" y2="${y(g.top).toFixed(1)}" stroke="var(--line)" stroke-width="1.5"/>`;
+    prevX = x + bw; prevY = y(g.bot);
+    s += `<rect x="${x.toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(2, yBot - yTop).toFixed(1)}" fill="${g.fill}" rx="3"/>`;
+    const isCost = g.st.kind === "cost";
+    const amt = isCost ? "(" + cur(g.st.val) + ")" : cur(g.st.val);
+    const red = isCost || g.fill === "var(--outflow)";
+    s += `<text x="${cx.toFixed(1)}" y="${(yTop-5).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${red?"var(--outflow)":"var(--ink)"}">${amt}</text>`;
+    s += `<text x="${cx.toFixed(1)}" y="${H-22}" text-anchor="middle" font-size="10" fill="var(--ink2)">${g.st.label}</text>`;
+  });
+  return `<svg class="revchart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+function openDetail(tk) {
+  const x = byT[tk]; if (!x) return;
+  const f = FIN[tk];
+  let h = `<div class="mhead">
+    <span class="tkr">${tk}</span>${starHTML(tk)}<span class="kr">${x.kr}</span>
+    <span class="price">$${fmt(x.price)}</span>
+    <span class="pill ${sign(x.chg)==="d"?"d":"u"}" style="${x.chg===0?"color:var(--ink2);background:none":""}">${chgTxt(x.chg)}</span>
+    <button class="mclose" onclick="closeDetail()">✕</button>
+  </div><div class="mbody">`;
+
+  const segH = segmentHTML(tk);
+  h += segH;
+
+  const wf = (f && f.annual) ? waterfallSVG(f.annual) : "";
+  if (wf) {
+    const an = f.annual, i = an.periods.length - 1, fy = an.periods[i];
+    const rev = an.revenue[i], net = an.netIncome[i];
+    const nm = (rev && net != null) ? Math.round(net/rev*100) + "%" : "";
+    h += `<h4>이익 구조 <small>FY${fy} 기준 · 매출→순이익 흐름${nm?` · 순이익률 ${nm}`:""}</small></h4>`;
+    h += wf;
+    h += `<div class="chart-legend"><span><i style="background:var(--profit)"></i>이익 단계</span><span><i style="background:var(--outflow)"></i>차감(비용·세금)</span></div>`;
+    h += `<div style="font-size:11px;color:var(--ink3);margin-top:6px">막대 높이 = 금액. 초록은 각 단계 이익, 빨강은 그 단계에서 빠져나간 비용.${segH ? "" : " (이 종목은 사업부문별 매출 데이터 미제공)"}</div>`;
+  } else {
+    const an = f && f.annual, i = an ? an.periods.length - 1 : -1;
+    const net = (an && an.netIncome) ? an.netIncome[i] : null;
+    const rev = (an && an.revenue) ? an.revenue[i] : null;
+    if (an && (rev === 0 || rev == null) && net != null) {
+      h += `<h4>이익 구조 <small>FY${an.periods[i]} 기준</small></h4><div class="fin-missing">아직 매출이 발생하지 않은 단계의 기업입니다. 최근 회계연도 ${net < 0 ? "순손실" : "순이익"} ${cur(Math.abs(net))}.</div>`;
+    } else {
+      h += `<h4>이익 구조</h4><div class="fin-missing">이 종목의 손익 데이터가 아직 없습니다.</div>`;
+    }
+  }
+
+  if (f && f.annual) {
+    const an = f.annual, q = f.quarter, cols = an.periods;
+    const rows = [
+      ["매출", an.revenue, q && q.revenue],
+      ["매출원가", an.costOfRevenue, null],
+      ["매출총이익", an.grossProfit, q && q.grossProfit],
+      ["영업이익", an.operatingIncome, q && q.operatingIncome],
+      ["순이익", an.netIncome, q && q.netIncome],
+      ["희석 EPS", an.eps, q && q.eps, true],
+    ];
+    const head = `<tr><th>항목</th>${cols.map(c => `<th>${c}</th>`).join("")}${q ? `<th class="qcol">${q.period}</th>` : ""}</tr>`;
+    const body = rows.map(([label, arr, qv, isEps]) => {
+      const cells = arr.map(v => `<td class="${v!=null&&v<0?"neg":""}">${isEps ? (v==null?"—":"$"+v.toFixed(2)) : cur(v)}</td>`).join("");
+      const qcell = q ? `<td class="qcol">${qv==null?"—":(isEps?"$"+Number(qv).toFixed(2):cur(qv))}</td>` : "";
+      return `<tr><td>${label}</td>${cells}${qcell}</tr>`;
+    }).join("");
+    h += `<h4>재무제표 <small>단위 USD · 연간${q ? ` + 최근분기 ${q.period}` : ""}</small></h4>`;
+    h += `<table class="fintable"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+    if (f.balance) {
+      const b = f.balance;
+      h += `<h4>재무상태표 <small>${b.period} 회계연도 기준</small></h4>`;
+      h += `<div class="balance-grid">
+        <div class="b"><div class="lbl">총자산</div><div class="val">${cur(b.totalAssets)}</div></div>
+        <div class="b"><div class="lbl">총부채</div><div class="val">${cur(b.totalLiabilities)}</div></div>
+        <div class="b"><div class="lbl">자기자본</div><div class="val">${cur(b.equity)}</div></div>
+        <div class="b"><div class="lbl">현금성자산</div><div class="val">${cur(b.cash)}</div></div>
+      </div>`;
+    }
+  }
+
+  const news = D.ticker_news[tk];
+  if (news && news.length) {
+    h += `<h4>관련 뉴스 <small>최근 급등락 · 48시간</small></h4><div class="mnews">`;
+    h += news.map(n => `<a href="${n.url}" target="_blank" rel="noopener"><div class="ko">${koTitle(n)}</div>${n.why?`<div class="why">${n.why}</div>`:""}<div class="en">${n.source} · ${n.title}</div></a>`).join("");
+    h += `</div>`;
+  }
+
+  h += `</div>`;
+  modal.innerHTML = h;
+  modal.scrollTop = 0;
+  backdrop.classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+function closeDetail() {
+  backdrop.classList.remove("show");
+  document.body.style.overflow = "";
+}
+backdrop.addEventListener("click", e => { if (e.target === backdrop) closeDetail(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeDetail(); });
+modal.addEventListener("click", e => {
+  const fav = e.target.closest(".fav");
+  if (fav) { e.stopPropagation(); toggleFav(fav.dataset.fav); }
+});
+
+// ---- sparkline hover tooltip
+const tip = $("#tooltip");
+document.addEventListener("mousemove", e => {
+  const svg = e.target.closest(".spark");
+  if (!svg) { tip.style.display = "none"; return; }
+  const x = byT[svg.dataset.t]; if (!x || !x.dates) { return; }
+  const r = svg.getBoundingClientRect();
+  const i = Math.max(0, Math.min(x.spark.length - 1,
+    Math.round((e.clientX - r.left) / r.width * (x.spark.length - 1))));
+  tip.innerHTML = `<b>${x.dates[i]}</b>$${fmt(x.spark[i])}`;
+  tip.style.display = "block";
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - 130) + "px";
+  tip.style.top = (e.clientY - 40) + "px";
+});
+</script>
+</body>
+</html>

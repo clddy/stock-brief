@@ -1,0 +1,1 @@
+window.STOCK_VERSION = {"build": 2, "date": "2026-07-12"};

@@ -1,0 +1,235 @@
+{
+  "groups": [
+    {
+      "name": "반도체·AI",
+      "news_query": "AI semiconductor chip Nvidia TSMC export",
+      "tickers": [
+        {"t": "NVDA", "kr": "엔비디아"},
+        {"t": "AVGO", "kr": "브로드컴"},
+        {"t": "TSM", "kr": "TSMC"},
+        {"t": "ASML", "kr": "ASML"},
+        {"t": "AMD", "kr": "AMD"},
+        {"t": "INTC", "kr": "인텔"},
+        {"t": "QCOM", "kr": "퀄컴"},
+        {"t": "MU", "kr": "마이크론"},
+        {"t": "ARM", "kr": "Arm 홀딩스"},
+        {"t": "SMCI", "kr": "슈퍼마이크로컴퓨터"},
+        {"t": "KLAC", "kr": "KLA"},
+        {"t": "LRCX", "kr": "램리서치"},
+        {"t": "AMAT", "kr": "어플라이드머티리얼즈"},
+        {"t": "STM", "kr": "ST마이크로일렉트로닉스"},
+        {"t": "SNDK", "kr": "샌디스크"},
+        {"t": "APH", "kr": "암페놀"}
+      ]
+    },
+    {
+      "name": "빅테크",
+      "news_query": "hyperscaler AI capex Microsoft Google Meta Amazon data center",
+      "tickers": [
+        {"t": "MSFT", "kr": "마이크로소프트"},
+        {"t": "GOOGL", "kr": "알파벳 A"},
+        {"t": "AAPL", "kr": "애플"},
+        {"t": "AMZN", "kr": "아마존"},
+        {"t": "META", "kr": "메타"},
+        {"t": "TSLA", "kr": "테슬라"},
+        {"t": "IBM", "kr": "IBM"},
+        {"t": "NFLX", "kr": "넷플릭스"}
+      ]
+    },
+    {
+      "name": "전력·그리드",
+      "news_query": "power grid electricity demand data center utility transformer",
+      "tickers": [
+        {"t": "ETN", "kr": "이턴"},
+        {"t": "VRT", "kr": "버티브 홀딩스"},
+        {"t": "GEV", "kr": "GE 버노바"},
+        {"t": "POWL", "kr": "파월 인더스트리스"},
+        {"t": "PWR", "kr": "콴타 서비시스"},
+        {"t": "CEG", "kr": "컨스텔레이션 에너지"},
+        {"t": "VST", "kr": "비스트라"},
+        {"t": "TLN", "kr": "탈렌 에너지"},
+        {"t": "HUBB", "kr": "허벨"},
+        {"t": "NVT", "kr": "엔벤트 일렉트릭"},
+        {"t": "PPSI", "kr": "파이어니어 파워"},
+        {"t": "MYRG", "kr": "MYR 그룹"},
+        {"t": "BDC", "kr": "벨던"},
+        {"t": "PRIM", "kr": "프리모리스"},
+        {"t": "CAT", "kr": "캐터필러"}
+      ]
+    },
+    {
+      "name": "냉각·HVAC",
+      "news_query": "data center liquid cooling HVAC thermal management",
+      "tickers": [
+        {"t": "MOD", "kr": "모딘 매뉴팩처링"},
+        {"t": "WSO", "kr": "와츠코"},
+        {"t": "TT", "kr": "트레인 테크놀로지스"},
+        {"t": "CARR", "kr": "캐리어 글로벌"},
+        {"t": "JCI", "kr": "존슨콘트롤즈"},
+        {"t": "IR", "kr": "잉거솔랜드"},
+        {"t": "LII", "kr": "레녹스 인터내셔널"},
+        {"t": "AAON", "kr": "에이에이온"},
+        {"t": "EME", "kr": "엠코 그룹"},
+        {"t": "FIX", "kr": "컴포트 시스템스"},
+        {"t": "FSV", "kr": "퍼스트서비스"},
+        {"t": "LMB", "kr": "림바흐 홀딩스"}
+      ]
+    },
+    {
+      "name": "원자력·우라늄",
+      "news_query": "nuclear power SMR small modular reactor uranium NRC",
+      "tickers": [
+        {"t": "SMR", "kr": "뉴스케일 파워"},
+        {"t": "OKLO", "kr": "오클로"},
+        {"t": "NNE", "kr": "나노 뉴클리어"},
+        {"t": "BWXT", "kr": "BWX 테크놀로지스"},
+        {"t": "LEU", "kr": "센트러스 에너지"},
+        {"t": "CCJ", "kr": "카메코"},
+        {"t": "UEC", "kr": "우라늄 에너지"}
+      ]
+    },
+    {
+      "name": "태양광·신재생",
+      "news_query": "utility scale solar energy tax credit renewables policy",
+      "tickers": [
+        {"t": "FSLR", "kr": "퍼스트 솔라"},
+        {"t": "NXT", "kr": "넥스트래커"},
+        {"t": "ENPH", "kr": "엔페이즈 에너지"}
+      ]
+    },
+    {
+      "name": "에너지저장·수소",
+      "news_query": "battery energy storage grid hydrogen fuel cell",
+      "tickers": [
+        {"t": "PLUG", "kr": "플러그 파워"},
+        {"t": "SLDP", "kr": "솔리드 파워"},
+        {"t": "STEM", "kr": "스템"},
+        {"t": "FLNC", "kr": "플루언스 에너지"},
+        {"t": "EOSE", "kr": "이오스 에너지"},
+        {"t": "ENS", "kr": "에너시스"},
+        {"t": "NEOV", "kr": "네오볼타"}
+      ]
+    },
+    {
+      "name": "원자재·소재",
+      "news_query": "copper rare earth lithium mining prices",
+      "tickers": [
+        {"t": "LIN", "kr": "린데"},
+        {"t": "HBM", "kr": "허드베이 미네랄스"},
+        {"t": "BHP", "kr": "BHP 그룹"},
+        {"t": "MP", "kr": "MP 머티리얼스"},
+        {"t": "CRML", "kr": "크리티컬 메탈스"},
+        {"t": "SCCO", "kr": "서던 코퍼"},
+        {"t": "RIO", "kr": "리오 틴토"},
+        {"t": "FCX", "kr": "프리포트-맥모란"},
+        {"t": "TECK", "kr": "텍 리소시스"}
+      ]
+    },
+    {
+      "name": "항공우주·방산",
+      "news_query": "aerospace defense space launch contract Pentagon",
+      "tickers": [
+        {"t": "SPCX", "kr": "스페이스X"},
+        {"t": "HWM", "kr": "하우멧 에어로스페이스"},
+        {"t": "GE", "kr": "GE 에어로스페이스"},
+        {"t": "RDW", "kr": "레드와이어"},
+        {"t": "JOBY", "kr": "조비 에비에이션"},
+        {"t": "ASTS", "kr": "AST 스페이스모바일"},
+        {"t": "HEI", "kr": "헤이코"},
+        {"t": "MOG-A", "kr": "무그 A"},
+        {"t": "RKLB", "kr": "로켓랩"},
+        {"t": "TDG", "kr": "트랜스다임"},
+        {"t": "ATI", "kr": "ATI"},
+        {"t": "LHX", "kr": "L3해리스"},
+        {"t": "GD", "kr": "제너럴 다이내믹스"},
+        {"t": "LMT", "kr": "록히드 마틴"}
+      ]
+    },
+    {
+      "name": "석유·가스",
+      "news_query": "oil gas prices OPEC natural gas LNG",
+      "tickers": [
+        {"t": "XOM", "kr": "엑슨모빌"},
+        {"t": "CVX", "kr": "셰브론"},
+        {"t": "OXY", "kr": "옥시덴털 페트롤리엄"},
+        {"t": "MGY", "kr": "매그놀리아 오일&가스"},
+        {"t": "DNOW", "kr": "디나우"}
+      ]
+    },
+    {
+      "name": "데이터센터·리츠",
+      "news_query": "data center construction REIT hyperscale lease",
+      "tickers": [
+        {"t": "DLR", "kr": "디지털 리얼티"},
+        {"t": "EQIX", "kr": "에퀴닉스"},
+        {"t": "O", "kr": "리얼티 인컴"}
+      ]
+    },
+    {
+      "name": "금융",
+      "news_query": "Federal Reserve interest rates banks earnings",
+      "tickers": [
+        {"t": "JPM", "kr": "JP모간 체이스"},
+        {"t": "BAC", "kr": "뱅크오브아메리카"},
+        {"t": "UBS", "kr": "UBS 그룹"},
+        {"t": "BLK", "kr": "블랙록"},
+        {"t": "BRK-B", "kr": "버크셔 해서웨이 B"},
+        {"t": "V", "kr": "비자"},
+        {"t": "MA", "kr": "마스터카드"},
+        {"t": "BN", "kr": "브룩필드"}
+      ]
+    },
+    {
+      "name": "소프트웨어·인터넷",
+      "news_query": "enterprise software cybersecurity AI earnings",
+      "tickers": [
+        {"t": "PLTR", "kr": "팔란티어"},
+        {"t": "CRWD", "kr": "크라우드스트라이크"},
+        {"t": "FTNT", "kr": "포티넷"},
+        {"t": "APP", "kr": "앱러빈"},
+        {"t": "ADBE", "kr": "어도비"},
+        {"t": "IONQ", "kr": "아이온큐"},
+        {"t": "U", "kr": "유니티"},
+        {"t": "PATH", "kr": "유아이패스"},
+        {"t": "GDDY", "kr": "고대디"},
+        {"t": "OPRA", "kr": "오페라"},
+        {"t": "PINS", "kr": "핀터레스트"},
+        {"t": "UBER", "kr": "우버"},
+        {"t": "JD", "kr": "징동닷컴"}
+      ]
+    },
+    {
+      "name": "헬스케어",
+      "news_query": "medical device FDA approval healthcare",
+      "tickers": [
+        {"t": "ISRG", "kr": "인튜이티브 서지컬"},
+        {"t": "SYK", "kr": "스트라이커"},
+        {"t": "NTRA", "kr": "나테라"},
+        {"t": "ENSG", "kr": "엔사인 그룹"}
+      ]
+    },
+    {
+      "name": "소비·기타",
+      "news_query": "US consumer spending retail earnings",
+      "tickers": [
+        {"t": "PEP", "kr": "펩시코"},
+        {"t": "RL", "kr": "랄프 로렌"},
+        {"t": "LULU", "kr": "룰루레몬"},
+        {"t": "DECK", "kr": "데커스 아웃도어"},
+        {"t": "DG", "kr": "달러 제너럴"},
+        {"t": "BBW", "kr": "빌드어베어 워크숍"},
+        {"t": "BROS", "kr": "더치 브로스"},
+        {"t": "WM", "kr": "웨이스트 매니지먼트"},
+        {"t": "GEO", "kr": "지오 그룹"},
+        {"t": "PH", "kr": "파카 하니핀"}
+      ]
+    }
+  ],
+  "theme_news": [
+    {"name": "AI 전력 인프라", "query": "AI data center power infrastructure"},
+    {"name": "SMR·원자력", "query": "small modular reactor nuclear SMR stocks"},
+    {"name": "데이터센터 냉각", "query": "data center liquid cooling HVAC"},
+    {"name": "태양광·신재생", "query": "utility scale solar energy storage stocks"},
+    {"name": "핵융합", "query": "nuclear fusion energy commercial"}
+  ]
+}
