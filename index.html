@@ -338,16 +338,20 @@ const SEG = window.STOCK_SEG || {};
 const SEG_COLORS = ["#5E5CE6", "#0A84FF", "#64D2FF", "#FF9F0A", "#FFD60A", "#BF5AF2", "#8E8E93"];
 const koTitle = n => n.ko || n.title;
 
-// ---- 즐겨찾기 (localStorage). 최초 실행 시 보유종목(favorites.js, 로컬 전용)으로 시드
+// ---- 즐겨찾기 (localStorage). 보유종목(favorites.js, 로컬 전용)을 1회 병합 시드
 const FAVS = new Set((() => {
+  let cur = [];
+  try { cur = JSON.parse(localStorage.getItem("sb_favs") || "[]"); } catch (e) {}
+  const set = new Set(Array.isArray(cur) ? cur : []);
   try {
-    const stored = localStorage.getItem("sb_favs");
-    if (stored === null && Array.isArray(window.DEFAULT_FAVS)) {
-      localStorage.setItem("sb_favs", JSON.stringify(window.DEFAULT_FAVS));
-      return window.DEFAULT_FAVS;
+    // 아직 시드한 적 없으면 보유종목을 기존 즐겨찾기에 합침(수동 변경은 이후 존중)
+    if (Array.isArray(window.DEFAULT_FAVS) && !localStorage.getItem("sb_favs_seeded")) {
+      window.DEFAULT_FAVS.forEach(t => set.add(t));
+      localStorage.setItem("sb_favs_seeded", "1");
+      localStorage.setItem("sb_favs", JSON.stringify([...set]));
     }
-    return JSON.parse(stored || "[]");
-  } catch (e) { return []; }
+  } catch (e) {}
+  return set;
 })());
 let favOnly = false;
 function saveFavs() { try { localStorage.setItem("sb_favs", JSON.stringify([...FAVS])); } catch (e) {} }
@@ -439,15 +443,60 @@ $("#cardsView").addEventListener("click", e => {
   if (c) openDetail(c.dataset.ticker);
 });
 
-// ---- table view
-$("#tableView").innerHTML = `<table><thead><tr>
-  <th>티커</th><th>이름</th><th>그룹</th><th>종가</th><th>전일比</th><th>1개월</th>
-</tr></thead><tbody>${
-  D.groups.flatMap(g => g.tickers.map(x => ({...x, g: g.name})))
-    .sort((a,b) => b.chg - a.chg)
-    .map(x => `<tr data-ticker="${x.t}" style="cursor:pointer" data-search="${x.t.toLowerCase()} ${x.kr}"><td><b>${x.t}</b></td><td>${x.kr}</td><td style="color:var(--ink2)">${x.g}</td><td>$${fmt(x.price)}</td><td class="${sign(x.chg)}">${chgTxt(x.chg)}</td><td class="${sign(x.chg1m)}">${chgTxt(x.chg1m)}</td></tr>`).join("")
-}</tbody></table>`;
+// ---- table view (정렬 가능)
+function numFmt(v) {
+  if (v == null) return "—";
+  const a = Math.abs(v);
+  if (a >= 1e9) return (v/1e9).toFixed(1) + "B";
+  if (a >= 1e6) return (v/1e6).toFixed(1) + "M";
+  if (a >= 1e3) return (v/1e3).toFixed(0) + "K";
+  return "" + v;
+}
+const tableRows = D.groups.flatMap(g => g.tickers.map(x => ({...x, g: g.name})));
+const SORT_COLS = [
+  {key:"t", label:"티커"}, {key:"kr", label:"이름"}, {key:"g", label:"그룹"},
+  {key:"price", label:"종가"}, {key:"chg", label:"전일比"}, {key:"chg1m", label:"1개월"},
+  {key:"mcap", label:"시가총액"}, {key:"vol", label:"거래량"},
+];
+const STR_KEYS = new Set(["t", "kr", "g"]);
+let sortState = { key: "chg", dir: "desc" };
+function renderTable() {
+  const { key, dir } = sortState, s = dir === "asc" ? 1 : -1;
+  const rows = [...tableRows].sort((a, b) => {
+    if (key === "g") {
+      const c = String(a.g).localeCompare(String(b.g), "ko");
+      return s * (c !== 0 ? c : String(a.t).localeCompare(String(b.t)));
+    }
+    if (STR_KEYS.has(key)) return s * String(a[key]).localeCompare(String(b[key]), "ko");
+    const va = a[key], vb = b[key];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    return s * (va - vb);
+  });
+  const head = SORT_COLS.map(c =>
+    `<th data-sort="${c.key}" style="cursor:pointer;white-space:nowrap">${c.label}${c.key === key ? (dir === "asc" ? " ▲" : " ▼") : ""}</th>`
+  ).join("");
+  const body = rows.map(x => `<tr data-ticker="${x.t}" style="cursor:pointer" data-search="${x.t.toLowerCase()} ${x.kr}">
+    <td><b>${x.t}</b></td><td>${x.kr}</td><td style="color:var(--ink2)">${x.g}</td>
+    <td>$${fmt(x.price)}</td>
+    <td class="${sign(x.chg)}">${chgTxt(x.chg)}</td>
+    <td class="${sign(x.chg1m)}">${chgTxt(x.chg1m)}</td>
+    <td>${x.mcap != null ? cur(x.mcap) : "—"}</td>
+    <td>${numFmt(x.vol)}</td></tr>`).join("");
+  $("#tableView").innerHTML = `<div style="overflow-x:auto"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  applyFilter();
+}
+renderTable();
 $("#tableView").addEventListener("click", e => {
+  const th = e.target.closest("th[data-sort]");
+  if (th) {
+    const k = th.dataset.sort;
+    if (sortState.key === k) sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+    else sortState = { key: k, dir: STR_KEYS.has(k) ? "asc" : "desc" };
+    renderTable();
+    return;
+  }
   const tr = e.target.closest("tr[data-ticker]");
   if (tr) openDetail(tr.dataset.ticker);
 });

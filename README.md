@@ -47,6 +47,13 @@
 (단일사업·사전매출 종목 OKLO·SMR·UEC·RDW 등은 부문 분해가 불가능 — 이익 구조 워터폴만 나옴)
 값은 공시(10-K/연차보고서) 기준 $M. 비중(%)은 입력값 합으로 자동 계산되므로 총액이 안 맞아도 OK.
 
+## 공개 배포 (GitHub Pages)
+
+- 사이트: **https://clddy.github.io/stock-brief** (친구·링크 공유용)
+- 리포: github.com/clddy/stock-brief (main/root)
+- `publish.py` 가 매일 버전(version.json build+1)을 기록하고 변경분을 자동 커밋·푸시
+- **비공개 유지**(`.gitignore`): `config.json`(API키), `favorites.js`(보유종목), `data.json`, 로그/캐시 → 공개엔 워치리스트·뉴스·재무만 올라감. 보유종목/즐겨찾기는 로컬에만.
+
 ## 자동 실행
 
 Windows 작업 스케줄러 `StockBriefCrawler` — 매일 06:30

@@ -5,6 +5,7 @@ yfinance로 시세(1개월 일봉)를 배치 수집하고,
 급등락 종목·테마별 뉴스(Google News RSS)를 모아 data.js로 내보낸다.
 대시보드(index.html)는 file:// 에서도 열리도록 JSON 대신 data.js를 읽는다.
 """
+import concurrent.futures
 import json
 import re
 import sys
@@ -57,8 +58,32 @@ def fetch_quotes(tickers):
                 "dates": [str(d.date()) for d in closes.index],
                 "asof": str(closes.index[-1].date()),
             }
+            try:
+                vols = df[t]["Volume"].dropna()
+                out[t]["vol"] = int(vols.mean()) if len(vols) else None
+            except Exception:
+                out[t]["vol"] = None
         except Exception as e:
             log(f"  quote fail {t}: {e}")
+    return out
+
+
+def fetch_mcaps(tickers):
+    """fast_info 로 시가총액 병렬 수집 → {ticker: mcap or None}."""
+    def one(t):
+        try:
+            fi = yf.Ticker(t).fast_info
+            try:
+                mc = fi["market_cap"]
+            except Exception:
+                mc = getattr(fi, "market_cap", None)
+            return t, (round(float(mc)) if mc else None)
+        except Exception:
+            return t, None
+    out = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
+        for t, mc in ex.map(one, tickers):
+            out[t] = mc
     return out
 
 
@@ -118,6 +143,12 @@ def main():
         log(f"retrying {len(missing)}: {missing}")
         quotes.update(fetch_quotes(missing))
     log(f"quotes ok: {len(quotes)}/{len(tickers)}")
+
+    mcaps = fetch_mcaps(list(quotes.keys()))
+    for t, mc in mcaps.items():
+        if t in quotes:
+            quotes[t]["mcap"] = mc
+    log(f"mcaps ok: {sum(1 for v in mcaps.values() if v)}/{len(mcaps)}")
 
     # 급등락 종목 개별 뉴스
     movers = sorted(
