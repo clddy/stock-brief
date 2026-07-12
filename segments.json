@@ -1806,5 +1806,125 @@
  "NXT": {
   "single": true,
   "note": "단일 사업부문(태양광 트래커)."
+ },
+ "CCJ": {
+  "period": "FY2024",
+  "by": "부문별(CAD $M, 웨스팅하우스는 지분법)",
+  "seg": [
+   [
+    "우라늄",
+    "Uranium",
+    2677
+   ],
+   [
+    "연료 서비스",
+    "Fuel Services",
+    459
+   ]
+  ]
+ },
+ "MYRG": {
+  "period": "FY2024",
+  "by": "부문별",
+  "seg": [
+   [
+    "송배전(T&D)",
+    "Transmission & Distribution",
+    1880
+   ],
+   [
+    "상업·산업(C&I)",
+    "Commercial & Industrial",
+    1480
+   ]
+  ]
+ },
+ "HBM": {
+  "period": "FY2024",
+  "by": "광산(사업단위)별",
+  "seg": [
+   [
+    "페루(콘스탄시아)",
+    "Peru",
+    1050
+   ],
+   [
+    "매니토바",
+    "Manitoba",
+    697
+   ],
+   [
+    "브리티시컬럼비아",
+    "British Columbia",
+    274
+   ]
+  ]
+ },
+ "BDC": {
+  "period": "FY2024",
+  "by": "부문별",
+  "seg": [
+   [
+    "자동화 솔루션",
+    "Automation Solutions",
+    1317
+   ],
+   [
+    "스마트 인프라",
+    "Smart Infrastructure Solutions",
+    1144
+   ]
+  ]
+ },
+ "GEO": {
+  "period": "FY2024",
+  "by": "부문별",
+  "seg": [
+   [
+    "미국 보안서비스",
+    "U.S. Secure Services",
+    1604
+   ],
+   [
+    "전자감독",
+    "Electronic Monitoring & Supervision",
+    333
+   ],
+   [
+    "재사회화 서비스",
+    "Reentry Services",
+    278
+   ],
+   [
+    "해외 서비스",
+    "International Services",
+    209
+   ]
+  ]
+ },
+ "AAON": {
+  "period": "FY2024",
+  "by": "부문별",
+  "seg": [
+   [
+    "AAON 오클라호마",
+    "AAON Oklahoma",
+    859
+   ],
+   [
+    "BASX(데이터센터 냉각)",
+    "BASX",
+    198
+   ],
+   [
+    "AAON 코일 프로덕츠",
+    "AAON Coil Products",
+    144
+   ]
+  ]
+ },
+ "V": {
+  "single": true,
+  "note": "단일 보고부문(결제 서비스). 매출=서비스+데이터처리+국제거래+기타, 고객 인센티브 차감 후 순매출 $35.9B(FY2024)."
  }
 }
