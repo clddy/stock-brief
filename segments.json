@@ -17,5 +17,13 @@
   "PLTR": {"period": "FY2024", "by": "고객별", "seg": [["정부", "Government", 1571], ["상업", "Commercial", 1295]]},
   "NFLX": {"period": "FY2024", "by": "지역별", "seg": [["미국·캐나다(UCAN)", "US & Canada", 17358], ["유럽·중동·아프리카", "EMEA", 12333], ["중남미(LATAM)", "LATAM", 4851], ["아시아·태평양(APAC)", "APAC", 4440]]},
   "MOD": {"period": "FY2024", "by": "부문별", "seg": [["기후 솔루션(데이터센터 냉각·HVAC)", "Climate Solutions", 1300], ["퍼포먼스 테크놀로지스", "Performance Technologies", 1100]]},
-  "VRT": {"period": "FY2024", "by": "지역별", "seg": [["미주", "Americas", 4500], ["유럽·중동·아프리카", "EMEA", 1790], ["아시아·태평양", "Asia Pacific", 1720]]}
+  "VRT": {"period": "FY2024", "by": "지역별", "seg": [["미주", "Americas", 4500], ["유럽·중동·아프리카", "EMEA", 1790], ["아시아·태평양", "Asia Pacific", 1720]]},
+  "CAT": {"period": "FY2024", "by": "부문별", "seg": [["에너지·운송", "Energy & Transportation", 28854], ["건설", "Construction Industries", 25455], ["자원(광산)", "Resource Industries", 12389], ["금융", "Financial Products", 4053]]},
+  "LMT": {"period": "FY2024", "by": "부문별", "seg": [["항공(전투기 등)", "Aeronautics", 28620], ["회전익·미션시스템", "Rotary & Mission Systems", 17260], ["미사일·화력통제", "Missiles & Fire Control", 12680], ["우주", "Space", 12610]]},
+  "MU": {"period": "FY2024", "by": "사업부별", "seg": [["컴퓨트·네트워크", "Compute & Networking", 9510], ["모바일", "Mobile", 6350], ["임베디드", "Embedded", 4610], ["스토리지", "Storage", 4590]]},
+  "ETN": {"period": "FY2024", "by": "부문별", "seg": [["전기 미주", "Electrical Americas", 11436], ["전기 글로벌", "Electrical Global", 6248], ["항공우주", "Aerospace", 3744], ["차량", "Vehicle", 2790], ["e모빌리티", "eMobility", 662]]},
+  "IBM": {"period": "FY2024", "by": "부문별", "seg": [["소프트웨어", "Software", 27085], ["컨설팅", "Consulting", 20692], ["인프라(하드웨어)", "Infrastructure", 14020], ["파이낸싱", "Financing", 713]]},
+  "PEP": {"period": "FY2024", "by": "부문별", "seg": [["펩시 음료 북미", "PBNA", 27769], ["프리토레이 북미(스낵)", "FLNA", 24755], ["유럽", "Europe", 13874], ["중남미", "Latin America", 11718], ["아프리카·중동·남아시아", "AMESA", 6217], ["아시아·태평양", "APAC", 4845], ["퀘이커 북미", "QFNA", 2676]]},
+  "ISRG": {"period": "FY2024", "by": "부문별", "seg": [["기구·소모품", "Instruments & Accessories", 5080], ["시스템(다빈치 로봇)", "Systems", 1960], ["서비스", "Services", 1310]]},
+  "HWM": {"period": "FY2024", "by": "부문별", "seg": [["엔진 제품", "Engine Products", 3700], ["체결 시스템", "Fastening Systems", 1700], ["엔지니어링 구조물", "Engineered Structures", 1100], ["단조 휠", "Forged Wheels", 1100]]}
 }
