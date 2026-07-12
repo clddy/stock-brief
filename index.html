@@ -368,7 +368,11 @@ function toggleFav(t) {
 }
 
 function segmentHTML(tk) {
-  const s = SEG[tk]; if (!s || !s.seg || !s.seg.length) return "";
+  const s = SEG[tk]; if (!s) return "";
+  if (s.single) {
+    return `<h4>사업부문 <small>단일 사업</small></h4><div class="fin-missing">${s.note || "단일 사업부문 기업이라 부문별 매출 구분이 없습니다."}</div>`;
+  }
+  if (!s.seg || !s.seg.length) return "";
   const total = s.seg.reduce((a, x) => a + x[2], 0) || 1;
   const rows = s.seg.map((x, i) => {
     const [ko, en, val] = x;
