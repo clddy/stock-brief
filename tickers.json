@@ -227,9 +227,10 @@
   ],
   "theme_news": [
     {"name": "AI 전력 인프라", "query": "AI data center power infrastructure"},
-    {"name": "SMR·원자력", "query": "small modular reactor nuclear SMR stocks"},
-    {"name": "데이터센터 냉각", "query": "data center liquid cooling HVAC"},
-    {"name": "태양광·신재생", "query": "utility scale solar energy storage stocks"},
-    {"name": "핵융합", "query": "nuclear fusion energy commercial"}
+    {"name": "데이터센터 HVAC", "query": "data center cooling"},
+    {"name": "원자력 (SMR·핵융합)", "query": "small modular reactor nuclear"},
+    {"name": "태양광/신재생", "query": "renewable energy stocks"},
+    {"name": "사이버보안", "query": "cybersecurity stocks"},
+    {"name": "방산/우주", "query": "space stocks defense"}
   ]
 }
