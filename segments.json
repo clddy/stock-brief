@@ -25,5 +25,12 @@
   "IBM": {"period": "FY2024", "by": "부문별", "seg": [["소프트웨어", "Software", 27085], ["컨설팅", "Consulting", 20692], ["인프라(하드웨어)", "Infrastructure", 14020], ["파이낸싱", "Financing", 713]]},
   "PEP": {"period": "FY2024", "by": "부문별", "seg": [["펩시 음료 북미", "PBNA", 27769], ["프리토레이 북미(스낵)", "FLNA", 24755], ["유럽", "Europe", 13874], ["중남미", "Latin America", 11718], ["아프리카·중동·남아시아", "AMESA", 6217], ["아시아·태평양", "APAC", 4845], ["퀘이커 북미", "QFNA", 2676]]},
   "ISRG": {"period": "FY2024", "by": "부문별", "seg": [["기구·소모품", "Instruments & Accessories", 5080], ["시스템(다빈치 로봇)", "Systems", 1960], ["서비스", "Services", 1310]]},
-  "HWM": {"period": "FY2024", "by": "부문별", "seg": [["엔진 제품", "Engine Products", 3700], ["체결 시스템", "Fastening Systems", 1700], ["엔지니어링 구조물", "Engineered Structures", 1100], ["단조 휠", "Forged Wheels", 1100]]}
+  "HWM": {"period": "FY2024", "by": "부문별", "seg": [["엔진 제품", "Engine Products", 3700], ["체결 시스템", "Fastening Systems", 1700], ["엔지니어링 구조물", "Engineered Structures", 1100], ["단조 휠", "Forged Wheels", 1100]]},
+  "GE": {"period": "FY2024", "by": "부문별", "seg": [["상업용 엔진·서비스", "Commercial Engines & Services", 27100], ["방산·추진 기술", "Defense & Propulsion", 11600]]},
+  "GD": {"period": "FY2024", "by": "부문별", "seg": [["마린(잠수함·함정)", "Marine Systems", 14343], ["테크놀로지스(IT)", "Technologies", 13100], ["항공(걸프스트림 제트)", "Aerospace", 11250], ["컴뱃(전차·무기)", "Combat Systems", 9000]]},
+  "JPM": {"period": "FY2024", "by": "부문별(순영업수익)", "seg": [["소비자·커뮤니티 뱅킹", "CCB", 71510], ["상업·투자은행", "CIB", 70110], ["자산·자산운용", "AWM", 21580]]},
+  "MA": {"period": "FY2024", "by": "부문별", "seg": [["결제 네트워크", "Payment Network", 17335], ["부가서비스·솔루션", "Value-added Services", 10832]]},
+  "SYK": {"period": "FY2024", "by": "부문별", "seg": [["메드서지·신경기술", "MedSurg & Neurotech", 13518], ["정형외과", "Orthopaedics", 9077]]},
+  "DECK": {"period": "FY2024", "by": "브랜드별", "seg": [["UGG", "UGG", 2239], ["호카", "HOKA", 1807], ["테바", "Teva", 149], ["기타(쿨라부라 등)", "Other", 68], ["산툭", "Sanuk", 25]]},
+  "RL": {"period": "FY2024", "by": "지역별", "seg": [["북미", "North America", 2950], ["유럽", "Europe", 1968], ["아시아", "Asia", 1567]]}
 }
