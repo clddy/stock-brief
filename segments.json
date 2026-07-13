@@ -1926,5 +1926,232 @@
  "V": {
   "single": true,
   "note": "단일 보고부문(결제 서비스). 매출=서비스+데이터처리+국제거래+기타, 고객 인센티브 차감 후 순매출 $35.9B(FY2024)."
+ },
+ "XOM": {
+  "period": "FY2024",
+  "by": "부문별 매출(외부)",
+  "seg": [
+   [
+    "에너지 프로덕츠(정제·판매)",
+    "Energy Products",
+    260856
+   ],
+   [
+    "업스트림(생산)",
+    "Upstream",
+    37131
+   ],
+   [
+    "화학 제품",
+    "Chemical Products",
+    22896
+   ],
+   [
+    "스페셜티 제품",
+    "Specialty Products",
+    18253
+   ]
+  ]
+ },
+ "CVX": {
+  "period": "FY2024",
+  "by": "부문별 매출(외부)",
+  "seg": [
+   [
+    "다운스트림(정제·판매)",
+    "Downstream",
+    146430
+   ],
+   [
+    "업스트림(생산)",
+    "Upstream",
+    45740
+   ],
+   [
+    "기타",
+    "All Other",
+    1244
+   ]
+  ]
+ },
+ "BRK-B": {
+  "period": "FY2024",
+  "by": "영업부문별 매출(투자수익·평가손익 제외)",
+  "seg": [
+   [
+    "보험료",
+    "Insurance premiums earned",
+    88257
+   ],
+   [
+    "제조",
+    "Manufacturing",
+    77231
+   ],
+   [
+    "서비스·소매(파일럿·자동차 등)",
+    "Service & Retailing",
+    73196
+   ],
+   [
+    "맥레인(식품유통)",
+    "McLane",
+    51907
+   ],
+   [
+    "철도(BNSF)",
+    "BNSF Railroad",
+    23355
+   ],
+   [
+    "유틸리티·에너지(BHE)",
+    "Utilities & Energy",
+    21518
+   ]
+  ]
+ },
+ "LEU": {
+  "period": "FY2024",
+  "by": "부문별",
+  "seg": [
+   [
+    "농축우라늄(LEU)",
+    "LEU (enriched uranium)",
+    350
+   ],
+   [
+    "기술 솔루션",
+    "Technical Solutions",
+    92
+   ]
+  ]
+ },
+ "LMB": {
+  "period": "FY2024",
+  "by": "부문별",
+  "seg": [
+   [
+    "오너 직접계약(ODR)",
+    "Owner Direct Relationships",
+    346
+   ],
+   [
+    "일반도급(GCR)",
+    "General Contractor Relationships",
+    173
+   ]
+  ]
+ },
+ "ASML": {
+  "single": true,
+  "note": "단일 보고부문(리소그래피 시스템+설치기반 관리). 매출은 시스템 판매+서비스로 구성."
+ },
+ "FLNC": {
+  "single": true,
+  "note": "단일 보고부문(에너지 저장 시스템·서비스·디지털)."
+ },
+ "RDW": {
+  "single": true,
+  "note": "단일 보고부문(우주 인프라)."
+ },
+ "TECK": {
+  "period": "FY2024",
+  "by": "부문별(CAD $M, 계속영업·석탄 2024 매각)",
+  "seg": [
+   [
+    "구리",
+    "Copper",
+    5542
+   ],
+   [
+    "아연",
+    "Zinc",
+    3523
+   ]
+  ]
+ },
+ "CEG": {
+  "period": "FY2024",
+  "by": "지역 부문별",
+  "seg": [
+   [
+    "미드애틀랜틱",
+    "Mid-Atlantic",
+    5522
+   ],
+   [
+    "기타 발전지역",
+    "Other Power Regions",
+    5506
+   ],
+   [
+    "중서부",
+    "Midwest",
+    4805
+   ],
+   [
+    "뉴욕",
+    "New York",
+    2050
+   ],
+   [
+    "ERCOT(텍사스)",
+    "ERCOT",
+    1550
+   ],
+   [
+    "기타(미할당·평가손익)",
+    "Other",
+    4135
+   ]
+  ]
+ },
+ "OPRA": {
+  "single": true,
+  "note": "단일 영업부문(경영진이 오페라 전체를 단일 단위로 관리). 매출=검색+광고."
+ },
+ "POWL": {
+  "single": true,
+  "note": "단일 보고부문(전력기기·시스템; 과거 자동화사업부 매각 후)."
+ },
+ "STEM": {
+  "single": true,
+  "note": "단일 영업부문(에너지 저장·분산 기술 서비스)."
+ },
+ "WM": {
+  "period": "FY2024",
+  "by": "서비스라인별(순매출)",
+  "seg": [
+   [
+    "수거(상업·주거·산업 등)",
+    "Collection",
+    14890
+   ],
+   [
+    "매립",
+    "Landfill",
+    3445
+   ],
+   [
+    "재활용",
+    "Recycling",
+    1603
+   ],
+   [
+    "중간처리(Transfer)",
+    "Transfer",
+    1381
+   ],
+   [
+    "의료폐기물(스테리사이클)",
+    "Healthcare Solutions",
+    403
+   ],
+   [
+    "재생에너지",
+    "WM Renewable Energy",
+    318
+   ]
+  ]
  }
 }
