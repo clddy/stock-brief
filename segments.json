@@ -2153,5 +2153,115 @@
     318
    ]
   ]
+ },
+ "FIX": {
+  "period": "FY2024",
+  "by": "부문별",
+  "seg": [
+   [
+    "기계(HVAC·배관)",
+    "Mechanical",
+    5528
+   ],
+   [
+    "전기",
+    "Electrical",
+    1500
+   ]
+  ]
+ },
+ "LULU": {
+  "period": "FY2024(2025.2월 결산)",
+  "by": "지역 부문별",
+  "seg": [
+   [
+    "아메리카",
+    "Americas",
+    7928
+   ],
+   [
+    "중국 본토",
+    "China Mainland",
+    1361
+   ],
+   [
+    "기타 지역",
+    "Rest of World",
+    1299
+   ]
+  ]
+ },
+ "BBW": {
+  "period": "FY2024(2025.2월 결산)",
+  "by": "부문별",
+  "seg": [
+   [
+    "소비자 직접판매(DTC)",
+    "Direct-to-Consumer",
+    460
+   ],
+   [
+    "커머셜",
+    "Commercial",
+    31
+   ],
+   [
+    "해외 프랜차이즈",
+    "International Franchising",
+    5
+   ]
+  ]
+ },
+ "BN": {
+  "period": "FY2024",
+  "by": "영업부문별 매출(외부)",
+  "seg": [
+   [
+    "사모투자·기타",
+    "Private Equity & Other",
+    41321
+   ],
+   [
+    "인프라",
+    "Infrastructure",
+    21525
+   ],
+   [
+    "자산운용",
+    "Asset Management",
+    10043
+   ],
+   [
+    "재생에너지·전환",
+    "Renewable Power & Transition",
+    6485
+   ],
+   [
+    "부동산",
+    "Real Estate",
+    6156
+   ],
+   [
+    "기업활동",
+    "Corporate",
+    476
+   ]
+  ]
+ },
+ "TLN": {
+  "period": "FY2024",
+  "by": "부문별(계속영업; ERCOT 2024.5 매각)",
+  "seg": [
+   [
+    "PJM",
+    "PJM",
+    1866
+   ],
+   [
+    "기타(ERCOT·WECC)",
+    "ERCOT & WECC",
+    367
+   ]
+  ]
  }
 }
