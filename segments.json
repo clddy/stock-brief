@@ -2263,5 +2263,141 @@
     367
    ]
   ]
+ },
+ "NEE": {
+  "period": "FY2024",
+  "by": "부문별",
+  "seg": [
+   [
+    "FPL(플로리다 전력·유틸리티)",
+    "Florida Power & Light",
+    17019
+   ],
+   [
+    "NEER(신재생·발전)",
+    "NextEra Energy Resources",
+    7542
+   ],
+   [
+    "기타·조정",
+    "Corporate & other",
+    192
+   ]
+  ]
+ },
+ "DELL": {
+  "period": "FY2025(2025.1월 결산)",
+  "by": "부문별",
+  "seg": [
+   [
+    "클라이언트 솔루션(CSG, PC)",
+    "Client Solutions Group",
+    48393
+   ],
+   [
+    "인프라 솔루션(ISG, 서버·스토리지)",
+    "Infrastructure Solutions Group",
+    43593
+   ],
+   [
+    "기타",
+    "Corporate & other",
+    3581
+   ]
+  ]
+ },
+ "SEDG": {
+  "period": "FY2024",
+  "by": "부문별",
+  "seg": [
+   [
+    "솔라(인버터·최적화기)",
+    "Solar",
+    842
+   ],
+   [
+    "기타(에너지저장 등)",
+    "All Other",
+    58
+   ]
+  ]
+ },
+ "ARRY": {
+  "period": "FY2024",
+  "by": "부문별",
+  "seg": [
+   [
+    "어레이 본사업(북미 트래커)",
+    "Array Legacy Operations",
+    662
+   ],
+   [
+    "STI(브라질·유럽)",
+    "STI Operations",
+    254
+   ]
+  ]
+ },
+ "BKSY": {
+  "period": "FY2024",
+  "by": "서비스 유형별",
+  "seg": [
+   [
+    "이미지·SW 분석 서비스",
+    "Imagery & Software Analytics",
+    70
+   ],
+   [
+    "전문·엔지니어링 서비스",
+    "Professional & Engineering",
+    32
+   ]
+  ]
+ },
+ "NBIS": {
+  "period": "FY2024",
+  "by": "부문별(총 세그먼트, 내부거래 전)",
+  "seg": [
+   [
+    "네비우스(AI 클라우드)",
+    "Nebius (AI cloud)",
+    68.3
+   ],
+   [
+    "트리플텐(에듀테크)",
+    "TripleTen",
+    28.8
+   ],
+   [
+    "톨로카(AI 데이터)",
+    "Toloka",
+    26.4
+   ],
+   [
+    "아브라이드(자율주행)",
+    "AvRide",
+    0.3
+   ]
+  ]
+ },
+ "RUN": {
+  "single": true,
+  "note": "단일 보고부문(주거용 태양광·에너지저장 시스템)."
+ },
+ "PL": {
+  "single": true,
+  "note": "단일 보고부문(지구관측 위성 데이터·구독)."
+ },
+ "ANET": {
+  "single": true,
+  "note": "단일 보고부문(클라우드·AI 네트워크 제품·서비스)."
+ },
+ "CRWV": {
+  "single": true,
+  "note": "단일 보고부문(AI 특화 GPU 클라우드)."
+ },
+ "LUNR": {
+  "single": true,
+  "note": "단일 보고부문(월면·궤도 우주 서비스; 4개 사업부는 별도 부문 아님)."
  }
 }
