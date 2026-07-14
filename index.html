@@ -323,11 +323,7 @@ $("#cntUp").textContent = all.filter(x => x.chg > 0).length;
 $("#cntDown").textContent = all.filter(x => x.chg < 0).length;
 $("#cntFlat").textContent = all.filter(x => x.chg === 0).length;
 
-// ---- movers strip
-const movers = [...all].sort((a,b) => Math.abs(b.chg) - Math.abs(a.chg)).slice(0, 10);
-$("#movers").innerHTML = movers.map(x =>
-  `<div class="chip" data-goto="${x.t}"><b>${x.t}</b><span class="${sign(x.chg)}" style="color:var(--${x.chg>=0?"up":"down"})">${chgTxt(x.chg)}</span></div>`
-).join("");
+// ---- movers strip (즐겨찾기 우선 → 나머지 급등락; renderMovers는 FAVS 정의 후 호출)
 $("#movers").addEventListener("click", e => {
   const chip = e.target.closest(".chip"); if (!chip) return;
   openDetail(chip.dataset.goto);
@@ -355,6 +351,18 @@ const FAVS = new Set((() => {
   return set;
 })());
 let favOnly = false;
+// 급등락 스트립: 즐겨찾기 먼저(등락률 절댓값 순) → 나머지 급등락으로 채움
+function renderMovers() {
+  const favs = all.filter(x => FAVS.has(x.t)).sort((a,b) => Math.abs(b.chg) - Math.abs(a.chg));
+  const rest = all.filter(x => !FAVS.has(x.t)).sort((a,b) => Math.abs(b.chg) - Math.abs(a.chg));
+  const n = Math.min(25, Math.max(12, favs.length));
+  const shown = [...favs, ...rest].slice(0, n);
+  $("#movers").innerHTML = shown.map(x => {
+    const star = FAVS.has(x.t) ? `<span style="color:#FFCC00;font-size:11px;line-height:1">★</span>` : "";
+    return `<div class="chip" data-goto="${x.t}">${star}<b>${x.t}</b><span class="${sign(x.chg)}" style="color:var(--${x.chg>=0?"up":"down"})">${chgTxt(x.chg)}</span></div>`;
+  }).join("");
+}
+renderMovers();
 function saveFavs() { try { localStorage.setItem("sb_favs", JSON.stringify([...FAVS])); } catch (e) {} }
 function starHTML(t) { return `<span class="fav ${FAVS.has(t) ? "on" : ""}" data-fav="${t}" title="즐겨찾기">${FAVS.has(t) ? "★" : "☆"}</span>`; }
 function syncStars(t) {
@@ -364,7 +372,7 @@ function syncStars(t) {
 }
 function toggleFav(t) {
   FAVS.has(t) ? FAVS.delete(t) : FAVS.add(t);
-  saveFavs(); syncStars(t);
+  saveFavs(); syncStars(t); renderMovers();
   if (favOnly) applyFilter();
 }
 
