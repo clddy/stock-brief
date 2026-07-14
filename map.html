@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>미국주식 히트맵</title>
+<style>
+  :root {
+    --bg: #f5f5f7; --card: #ffffff; --ink: #1d1d1f; --ink2: #6e6e73; --ink3: #aeaeb2;
+    --line: rgba(0,0,0,.08);
+    --up: #d70015; --down: #0066cc; --neutral: #8e8e93;
+    --header-bg: rgba(245,245,247,.82); --accent: #0071e3;
+    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000; --card: #1c1c1e; --ink: #f5f5f7; --ink2: #98989d; --ink3: #636366;
+      --line: rgba(255,255,255,.1);
+      --up: #ff453a; --down: #0a84ff; --neutral: #636366;
+      --header-bg: rgba(0,0,0,.65); --accent: #0a84ff;
+      --shadow: 0 1px 3px rgba(0,0,0,.4);
+    }
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable", "Segoe UI", Roboto, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg); color: var(--ink); font-size: 15px;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  header {
+    position: sticky; top: 0; z-index: 50; background: var(--header-bg);
+    backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8);
+    border-bottom: 1px solid var(--line);
+  }
+  .hwrap { max-width: 1600px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  h1 { font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+  .back { font-size: 13px; font-weight: 600; color: var(--ink2); border: 1px solid var(--line); background: var(--card); border-radius: 99px; padding: 6px 13px; }
+  .meta { font-size: 12px; color: var(--ink2); }
+  .spacer { flex: 1; }
+  .seg { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
+  .seg button { appearance: none; border: none; background: none; color: var(--ink2); font: inherit; font-size: 13px; font-weight: 600; padding: 6px 14px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .breadth { display: flex; gap: 8px; font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .breadth .u { color: var(--up); } .breadth .d { color: var(--down); }
+
+  main { max-width: 1600px; margin: 0 auto; padding: 14px 20px 40px; }
+  #map { position: relative; width: 100%; }
+
+  .grp { position: absolute; overflow: hidden; }
+  .grp-label {
+    position: absolute; top: 0; left: 0; right: 0; height: 20px; z-index: 3;
+    display: flex; align-items: center; padding: 0 7px; pointer-events: none;
+    font-size: 11px; font-weight: 700; letter-spacing: .01em;
+    color: var(--ink2); text-transform: none;
+    background: linear-gradient(var(--bg), rgba(0,0,0,0));
+    text-shadow: 0 1px 2px var(--bg);
+  }
+  .tile {
+    position: absolute; overflow: hidden; cursor: pointer;
+    border: 1px solid rgba(0,0,0,.14);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; color: #fff; line-height: 1.05;
+    transition: filter .12s, outline .12s;
+  }
+  @media (prefers-color-scheme: dark) { .tile { border-color: rgba(0,0,0,.35); } }
+  .tile:hover { filter: brightness(1.12); outline: 2px solid #fff; outline-offset: -2px; z-index: 5; }
+  .tile .tk { font-weight: 800; letter-spacing: -.01em; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+  .tile .pc { font-weight: 600; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,.4); opacity: .96; }
+
+  .legend { display: flex; align-items: center; gap: 2px; margin: 14px 2px 0; font-size: 11px; color: var(--ink2); flex-wrap: wrap; }
+  .legend .sw { width: 22px; height: 13px; display: inline-block; border-radius: 2px; }
+  .legend b { font-weight: 700; }
+
+  #tip {
+    position: fixed; z-index: 100; pointer-events: none; opacity: 0;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: var(--shadow); padding: 10px 13px; min-width: 172px;
+    transition: opacity .1s; font-variant-numeric: tabular-nums;
+  }
+  #tip .tt { font-size: 14px; font-weight: 700; }
+  #tip .tn { font-size: 11.5px; color: var(--ink2); margin-bottom: 6px; }
+  #tip .tr { display: flex; justify-content: space-between; gap: 18px; font-size: 12.5px; margin: 2px 0; }
+  #tip .tr span:first-child { color: var(--ink2); }
+  #tip .up { color: var(--up); font-weight: 700; } #tip .down { color: var(--down); font-weight: 700; }
+  .foot { text-align:center; color: var(--ink3); font-size: 11.5px; margin-top: 20px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="hwrap">
+    <h1>🗺 미국주식 히트맵</h1>
+    <a class="back" href="index.html">← 대시보드</a>
+    <span class="meta" id="meta"></span>
+    <div class="spacer"></div>
+    <div class="breadth" id="breadth"></div>
+    <div class="seg" id="modeSeg">
+      <button data-m="chg" class="on">일간</button>
+      <button data-m="chg1m">1개월</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="map"></div>
+  <div class="legend" id="legend"></div>
+  <div class="foot" id="foot"></div>
+</main>
+
+<div id="tip"></div>
+
+<script>document.write('<scr'+'ipt src="data.js?t='+Date.now()+'"><\/scr'+'ipt>');</script>
+<script>document.write('<scr'+'ipt src="version.js?t='+Date.now()+'"><\/scr'+'ipt>');</script>
+<script>
+const D = window.STOCK_DATA;
+const $ = s => document.querySelector(s);
+let MODE = "chg"; // chg | chg1m
+
+// ---------- helpers ----------
+function fmtMcap(v){
+  if (v == null) return "—";
+  if (v >= 1e12) return "$" + (v/1e12).toFixed(2) + "T";
+  if (v >= 1e9)  return "$" + (v/1e9).toFixed(1) + "B";
+  if (v >= 1e6)  return "$" + (v/1e6).toFixed(0) + "M";
+  return "$" + v.toFixed(0);
+}
+function pctStr(v){ return (v>0?"+":"") + (v==null?"—":v.toFixed(2)) + "%"; }
+
+// color: neutral gray -> red(up) / blue(down), intensity by |v| capped at CAP
+function lerp(a,b,t){ return Math.round(a+(b-a)*t); }
+function hex(c){ return c.map(x=>x.toString(16).padStart(2,"0")).join(""); }
+function isDark(){ return window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches; }
+function colorFor(v){
+  if (v == null || isNaN(v)) return isDark()? "#3a3a3c" : "#c7c7cc";
+  const CAP = (MODE === "chg1m") ? 12 : 4;          // saturate at ±CAP%
+  const dark = isDark();
+  const neutral = dark ? [58,58,60] : [142,142,147]; // gray
+  const up  = dark ? [255,69,58]  : [215,0,21];      // red
+  const down= dark ? [10,132,255] : [0,102,204];     // blue
+  const mag = Math.min(Math.abs(v)/CAP, 1);
+  const t = Math.pow(mag, 0.62);                     // ease so mid moves visible
+  const tgt = v >= 0 ? up : down;
+  const base = Math.abs(v) < 0.05 ? neutral : neutral;
+  return "#" + hex([0,1,2].map(i => lerp(base[i], tgt[i], t)));
+}
+
+// ---------- squarified treemap (Bruls et al.) ----------
+function squarify(items, x, y, w, h){
+  // items: [{value}], value>0. Returns items with {x,y,w,h}
+  const out = [];
+  const nodes = items.filter(d => d.value > 0).slice();
+  const total = nodes.reduce((a,d)=>a+d.value,0);
+  if (total <= 0 || w <= 0 || h <= 0) return out;
+  // scale values to area
+  const area = w*h;
+  nodes.forEach(d => d._a = d.value/total*area);
+  let rx=x, ry=y, rw=w, rh=h;
+  let i=0;
+  const N = nodes.length;
+  function layoutRow(row, rowSum, horiz, rx, ry, rw, rh){
+    if (horiz){ // fixed width side = rh? we lay along the shorter side
+    }
+  }
+  // classic: keep adding to current row while worst aspect ratio improves
+  let row=[], rowSum=0;
+  const wrat = ()=>{
+    const s = rowSum; if (s<=0) return Infinity;
+    const side = Math.min(rw, rh);
+    const thick = s/side;               // thickness of the row
+    let mx=0;
+    for(const d of row){ const l = d._a/thick; mx=Math.max(mx, Math.max(thick/l, l/thick)); }
+    return mx;
+  };
+  function flushRow(){
+    if (!row.length) return;
+    const side = Math.min(rw, rh);
+    const thick = rowSum/side;
+    if (rw >= rh){
+      // stack vertically in a column of width `thick` at left
+      let cy=ry;
+      for(const d of row){ const hh=d._a/thick; out.push(Object.assign(d,{x:rx,y:cy,w:thick,h:hh})); cy+=hh; }
+      rx+=thick; rw-=thick;
+    } else {
+      let cx=rx;
+      for(const d of row){ const ww=d._a/thick; out.push(Object.assign(d,{x:cx,y:ry,w:ww,h:thick})); cx+=ww; }
+      ry+=thick; rh-=thick;
+    }
+    row=[]; rowSum=0;
+  }
+  for (const d of nodes){
+    const cur = wrat();
+    row.push(d); rowSum += d._a;
+    const nxt = wrat();
+    if (row.length>1 && nxt > cur){
+      row.pop(); rowSum -= d._a;
+      flushRow();
+      row.push(d); rowSum += d._a;
+    }
+  }
+  flushRow();
+  return out;
+}
+
+// ---------- build ----------
+const GAP = 3, HEAD = 20, TILEGAP = 1;
+let ALL = [];
+D.groups.forEach(g => g.tickers.forEach(t => ALL.push(Object.assign({grp:g.name}, t))));
+
+function buildGroups(){
+  return D.groups.map(g => {
+    const tk = g.tickers.filter(t => (t.mcap||0) > 0);
+    const val = tk.reduce((a,t)=>a+(t.mcap||0),0);
+    return { name:g.name, tickers:tk, value:val };
+  }).filter(g => g.value>0).sort((a,b)=>b.value-a.value);
+}
+
+function render(){
+  const map = $("#map");
+  const W = map.clientWidth;
+  const H = Math.max(520, Math.min(920, Math.round(W * 0.62)));
+  map.style.height = H + "px";
+  map.innerHTML = "";
+
+  const groups = buildGroups();
+  const gLay = squarify(groups.map(g=>({value:g.value, ref:g})), 0, 0, W, H);
+
+  gLay.forEach(gl => {
+    const g = gl.ref;
+    const gx=gl.x+GAP/2, gy=gl.y+GAP/2, gw=Math.max(0,gl.w-GAP), gh=Math.max(0,gl.h-GAP);
+    const box = document.createElement("div");
+    box.className = "grp";
+    box.style.cssText = `left:${gx}px;top:${gy}px;width:${gw}px;height:${gh}px`;
+    const showHead = gh > 46 && gw > 60;
+    if (showHead){
+      const lb = document.createElement("div");
+      lb.className = "grp-label";
+      lb.textContent = g.name;
+      box.appendChild(lb);
+    }
+    const innerY = showHead ? HEAD : 0;
+    // floor each tile's sizing value so tracked micro-caps stay visible (watchlist, not pure area-truth)
+    const gTot = g.tickers.reduce((a,t)=>a+(t.mcap||0),0) || 1;
+    const floor = gTot * 0.013;
+    const tiles = squarify(
+      g.tickers.map(t=>({value:Math.max(t.mcap, floor), ref:t})),
+      0, 0, gw, Math.max(0, gh - innerY)
+    );
+    tiles.forEach(tl => {
+      const t = tl.ref;
+      const el = document.createElement("div");
+      el.className = "tile";
+      const x=tl.x+TILEGAP/2, y=innerY+tl.y+TILEGAP/2, w=Math.max(0,tl.w-TILEGAP), h=Math.max(0,tl.h-TILEGAP);
+      const v = MODE==="chg" ? t.chg : t.chg1m;
+      el.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:${colorFor(v)}`;
+      // label sizing based on tile area
+      const fs = Math.max(8, Math.min(22, Math.round(Math.sqrt(w*h)/5.2)));
+      const showTxt = w>26 && h>18;
+      const showPc = w>34 && h>30;
+      if (showTxt){
+        el.innerHTML = `<div class="tk" style="font-size:${fs}px">${t.t}</div>` +
+          (showPc ? `<div class="pc" style="font-size:${Math.max(8,fs*0.66)}px">${pctStr(v)}</div>` : "");
+      }
+      el.dataset.t = t.t;
+      box.appendChild(el);
+    });
+    map.appendChild(box);
+  });
+
+  // breadth + meta
+  const vals = ALL.map(t => MODE==="chg"?t.chg:t.chg1m).filter(v=>v!=null&&!isNaN(v));
+  const up = vals.filter(v=>v>0).length, dn = vals.filter(v=>v<0).length, fl = vals.length-up-dn;
+  $("#breadth").innerHTML = `<span class="u">▲ ${up}</span><span class="d">▼ ${dn}</span><span style="color:var(--ink3)">= ${fl}</span>`;
+  $("#meta").textContent = (D.generated_at ? D.generated_at.replace("T"," ") : "") + " · " + ALL.length + "종목 · 크기=시가총액";
+  $("#foot").textContent = "네모 크기 = 시가총액 · 색 = " + (MODE==="chg"?"당일 등락률":"1개월 등락률") + " (빨강=상승 · 파랑=하락, 한국식)";
+}
+
+// legend
+function legend(){
+  const steps = MODE==="chg" ? [-4,-2,-1,0,1,2,4] : [-12,-6,-3,0,3,6,12];
+  const el = $("#legend");
+  el.innerHTML = `<b>${MODE==="chg"?"당일":"1개월"}</b>&nbsp;` +
+    steps.map(v=>`<span class="sw" style="background:${colorFor(v)}" title="${pctStr(v)}"></span>`).join("") +
+    `&nbsp;<span>${MODE==="chg"?"−4%":"−12%"} → +${MODE==="chg"?"4%":"12%"}</span>`;
+}
+
+// tooltip
+const tip = $("#tip");
+function showTip(t, ev){
+  tip.innerHTML =
+    `<div class="tt">${t.t} <span style="font-weight:500;color:var(--ink3)">${fmtMcap(t.mcap)}</span></div>`+
+    `<div class="tn">${t.kr||""} · ${t.grp}</div>`+
+    `<div class="tr"><span>종가</span><span>$${t.price!=null?t.price.toFixed(2):"—"}</span></div>`+
+    `<div class="tr"><span>당일</span><span class="${t.chg>=0?"up":"down"}">${pctStr(t.chg)}</span></div>`+
+    `<div class="tr"><span>1개월</span><span class="${t.chg1m>=0?"up":"down"}">${pctStr(t.chg1m)}</span></div>`;
+  tip.style.opacity = 1;
+  moveTip(ev);
+}
+function moveTip(ev){
+  const pad=14, tw=tip.offsetWidth, th=tip.offsetHeight;
+  let x=ev.clientX+pad, y=ev.clientY+pad;
+  if (x+tw>innerWidth-6) x=ev.clientX-tw-pad;
+  if (y+th>innerHeight-6) y=ev.clientY-th-pad;
+  tip.style.left=x+"px"; tip.style.top=y+"px";
+}
+const byT = Object.fromEntries(ALL.map(t=>[t.t,t]));
+$("#map").addEventListener("mousemove", e=>{
+  const el=e.target.closest(".tile"); if(!el){ tip.style.opacity=0; return; }
+  const t=byT[el.dataset.t]; if(!t){ tip.style.opacity=0; return; }
+  if (tip.dataset.cur!==t.t){ tip.dataset.cur=t.t; showTip(t,e); } else moveTip(e);
+});
+$("#map").addEventListener("mouseleave", ()=>{ tip.style.opacity=0; tip.dataset.cur=""; });
+$("#map").addEventListener("click", e=>{
+  const el=e.target.closest(".tile"); if(!el) return;
+  location.href = "index.html";
+});
+
+// mode toggle
+$("#modeSeg").addEventListener("click", e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  document.querySelectorAll("#modeSeg button").forEach(x=>x.classList.toggle("on", x===b));
+  MODE=b.dataset.m; render(); legend();
+});
+
+let rt; addEventListener("resize", ()=>{ clearTimeout(rt); rt=setTimeout(()=>{render();legend();},150); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", ()=>{render();legend();});
+
+render(); legend();
+</script>
+</body>
+</html>
