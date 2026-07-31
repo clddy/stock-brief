@@ -1,1 +1,1 @@
-window.STOCK_VERSION = {"build": 31, "date": "2026-07-31"};
+window.STOCK_VERSION = {"build": 32, "date": "2026-08-01"};
