@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """stock-brief crawler — 미국주식 워치리스트 시세+뉴스 수집기.
 
-yfinance로 시세(3개월 일봉)를 배치 수집하고,
+yfinance로 시세(1년 일봉)를 배치 수집하고,
 급등락 종목·테마별 뉴스(Google News RSS)를 모아 data.js로 내보낸다.
 대시보드(index.html)는 file:// 에서도 열리도록 JSON 대신 data.js를 읽는다.
 """
@@ -35,14 +35,18 @@ def log(msg):
         f.write(line + "\n")
 
 
-def fetch_quotes(tickers):
-    """3개월 일봉 배치 다운로드 → {ticker: {price, chg, spark(3개월), i1m, chg1m, chg3m, ...}}
+HORIZONS = {"1m": 30, "3m": 91, "6m": 182, "1y": 365}   # 기간 키 → 달력일수
 
-    spark/dates 는 3개월 전체를 담고, 1개월 구간은 i1m 인덱스부터 잘라 쓴다
-    (대시보드에서 1개월/3개월 토글).
+
+def fetch_quotes(tickers):
+    """1년 일봉 배치 다운로드 → {ticker: {price, chg, spark(1년), i1m/i3m/i6m/i1y, chg1m/3m/6m/1y, ...}}
+
+    spark 는 1년 전체를 담고, 각 기간은 i<key> 인덱스부터 잘라 쓴다(대시보드 기간 토글).
+    날짜는 용량 절감을 위해 시작일 d0 + 일수 오프셋 dd 로 저장한다.
+    상장 얼마 안 된 종목은 히스토리가 기간의 90% 미만이면 해당 기간 등락률을 None 으로 둔다.
     """
     df = yf.download(
-        tickers, period="3mo", interval="1d",
+        tickers, period="1y", interval="1d",
         auto_adjust=True, group_by="ticker", threads=True, progress=False,
     )
     out = {}
@@ -54,25 +58,25 @@ def fetch_quotes(tickers):
             idx = closes.index
             last = float(closes.iloc[-1])
             prev = float(closes.iloc[-2])
-            first = float(closes.iloc[0])
-            # 1개월 구간 시작 = 마지막 거래일 기준 30일 전 이후의 첫 거래일
-            cutoff = idx[-1] - timedelta(days=30)
-            i1m = 0
-            for i, d in enumerate(idx):
-                if d >= cutoff:
-                    i1m = i
-                    break
-            base1m = float(closes.iloc[i1m])
-            out[t] = {
+            span_days = (idx[-1] - idx[0]).days
+            rec = {
                 "price": round(last, 2),
                 "chg": round((last - prev) / prev * 100, 2),
-                "chg1m": round((last - base1m) / base1m * 100, 2) if base1m else None,
-                "chg3m": round((last - first) / first * 100, 2) if first else None,
-                "i1m": i1m,
-                "spark": [round(float(c), 2) for c in closes.tolist()],
-                "dates": [str(d.date()) for d in idx],
-                "asof": str(idx[-1].date()),
             }
+            for key, days in HORIZONS.items():
+                # 기간 시작 = 마지막 거래일 기준 days일 전 이후의 첫 거래일
+                cutoff = idx[-1] - timedelta(days=days)
+                i0 = next((i for i, d in enumerate(idx) if d >= cutoff), 0)
+                base = float(closes.iloc[i0])
+                rec["i" + key] = i0
+                rec["chg" + key] = (round((last - base) / base * 100, 2)
+                                    if base and span_days >= days * 0.9 else None)
+            d0 = idx[0].date()
+            rec["spark"] = [round(float(c), 2) for c in closes.tolist()]
+            rec["d0"] = str(d0)
+            rec["dd"] = [(d.date() - d0).days for d in idx]
+            rec["asof"] = str(idx[-1].date())
+            out[t] = rec
             try:
                 vols = df[t]["Volume"].dropna()
                 out[t]["vol"] = int(vols.mean()) if len(vols) else None

@@ -99,6 +99,8 @@
       <button data-m="chg" class="on">일간</button>
       <button data-m="chg1m">1개월</button>
       <button data-m="chg3m">3개월</button>
+      <button data-m="chg6m">6개월</button>
+      <button data-m="chg1y">1년</button>
     </div>
   </div>
 </header>
@@ -116,9 +118,9 @@
 <script>
 const D = window.STOCK_DATA;
 const $ = s => document.querySelector(s);
-let MODE = "chg"; // chg | chg1m | chg3m
-const MODE_LABEL = { chg: "당일", chg1m: "1개월", chg3m: "3개월" };
-const MODE_CAP   = { chg: 4,      chg1m: 12,     chg3m: 20 };
+let MODE = "chg"; // chg | chg1m | chg3m | chg6m | chg1y
+const MODE_LABEL = { chg: "당일", chg1m: "1개월", chg3m: "3개월", chg6m: "6개월", chg1y: "1년" };
+const MODE_CAP   = { chg: 4,      chg1m: 12,     chg3m: 20,     chg6m: 30,     chg1y: 50 };
 
 // ---------- helpers ----------
 function fmtMcap(v){
@@ -302,7 +304,9 @@ function showTip(t, ev){
     `<div class="tr"><span>종가</span><span>$${t.price!=null?t.price.toFixed(2):"—"}</span></div>`+
     `<div class="tr"><span>당일</span><span class="${t.chg>=0?"up":"down"}">${pctStr(t.chg)}</span></div>`+
     `<div class="tr"><span>1개월</span><span class="${t.chg1m>=0?"up":"down"}">${pctStr(t.chg1m)}</span></div>`+
-    `<div class="tr"><span>3개월</span><span class="${t.chg3m>=0?"up":"down"}">${pctStr(t.chg3m)}</span></div>`;
+    `<div class="tr"><span>3개월</span><span class="${t.chg3m>=0?"up":"down"}">${pctStr(t.chg3m)}</span></div>`+
+    `<div class="tr"><span>6개월</span><span class="${t.chg6m>=0?"up":"down"}">${pctStr(t.chg6m)}</span></div>`+
+    `<div class="tr"><span>1년</span><span class="${t.chg1y>=0?"up":"down"}">${pctStr(t.chg1y)}</span></div>`;
   tip.style.opacity = 1;
   moveTip(ev);
 }

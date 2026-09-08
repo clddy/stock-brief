@@ -280,6 +280,8 @@
     <div class="seg" id="perSeg" title="스파크라인·등락률 기간">
       <button data-p="1m" class="on">1개월</button>
       <button data-p="3m">3개월</button>
+      <button data-p="6m">6개월</button>
+      <button data-p="1y">1년</button>
     </div>
     <button id="favBtn" class="favbtn" title="즐겨찾기만 보기">★ 즐겨찾기</button>
     <a href="map.html" class="favbtn" title="finviz식 히트맵" style="text-decoration:none">🗺 히트맵</a>
@@ -302,7 +304,7 @@
 <footer>
   <span id="ver"></span>
   데이터: Yahoo Finance(지연 시세 가능) · 뉴스: Google News RSS · 매일 아침 자동 갱신<br>
-  표시 색상: <b style="color:var(--up)">빨강 = 상승</b> · <b style="color:var(--down)">파랑 = 하락</b> · 스파크라인은 선택 기간(1개월/3개월) 종가. 투자 판단은 본인 책임.
+  표시 색상: <b style="color:var(--up)">빨강 = 상승</b> · <b style="color:var(--down)">파랑 = 하락</b> · 스파크라인은 선택 기간(1개월~1년) 종가. 투자 판단은 본인 책임.
 </footer>
 
 <script>document.write('<scr'+'ipt src="financials.js?t='+Date.now()+'"><\/scr'+'ipt>');</script>
@@ -317,15 +319,24 @@ const fmt = n => n.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFra
 const sign = c => c > 0 ? "u" : c < 0 ? "d" : "f";
 const chgTxt = c => (c == null || isNaN(c)) ? "—" : (c > 0 ? "+" : "") + c.toFixed(2) + "%";
 
-// ---- 기간(1개월/3개월). spark/dates는 3개월 전체, i1m부터 자르면 1개월 구간
-let PERIOD = (() => { try { return localStorage.getItem("sb_period") === "3m" ? "3m" : "1m"; } catch (e) { return "1m"; } })();
-const perLabel = () => PERIOD === "3m" ? "3개월" : "1개월";
+// ---- 기간(1개월/3개월/6개월/1년). spark는 1년 전체, i<기간>부터 자르면 해당 구간
+const PERIODS = { "1m": "1개월", "3m": "3개월", "6m": "6개월", "1y": "1년" };
+let PERIOD = (() => { try { const p = localStorage.getItem("sb_period"); return PERIODS[p] ? p : "1m"; } catch (e) { return "1m"; } })();
+const perLabel = () => PERIODS[PERIOD];
 function seriesOf(x) {
-  const v = x.spark || [];
-  const i = (PERIOD === "1m" && Number.isInteger(x.i1m)) ? x.i1m : 0;
-  return { v: v.slice(i), d: (x.dates || []).slice(i) };
+  const k = "i" + PERIOD;
+  const i0 = Number.isInteger(x[k]) ? x[k] : 0;
+  return { v: (x.spark || []).slice(i0), i0 };
 }
-const chgOf = x => PERIOD === "3m" ? (x.chg3m != null ? x.chg3m : null) : x.chg1m;
+const chgOf = x => { const v = x["chg" + PERIOD]; return v == null ? null : v; };
+// 날짜: 구버전(dates 배열) 또는 압축(d0 시작일 + dd 일수 오프셋). UTC로 계산해 시간대 밀림 방지
+function dateAt(x, i) {
+  if (x.dates) return x.dates[i];
+  const [y, m, d] = String(x.d0).split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + ((x.dd && x.dd[i]) || 0));
+  return dt.toISOString().slice(0, 10);
+}
 
 // ---- header meta
 const all = D.groups.flatMap(g => g.tickers);
@@ -486,6 +497,7 @@ const SORT_COLS = [
   {key:"t", label:"티커"}, {key:"kr", label:"이름"}, {key:"g", label:"그룹"},
   {key:"price", label:"종가"}, {key:"chg", label:"전일比"},
   {key:"chg1m", label:"1개월"}, {key:"chg3m", label:"3개월"},
+  {key:"chg6m", label:"6개월"}, {key:"chg1y", label:"1년"},
   {key:"mcap", label:"시가총액"}, {key:"vol", label:"거래량"},
 ];
 const STR_KEYS = new Set(["t", "kr", "g"]);
@@ -513,6 +525,8 @@ function renderTable() {
     <td class="${sign(x.chg)}">${chgTxt(x.chg)}</td>
     <td class="${sign(x.chg1m)}">${chgTxt(x.chg1m)}</td>
     <td class="${sign(x.chg3m)}">${chgTxt(x.chg3m)}</td>
+    <td class="${sign(x.chg6m)}">${chgTxt(x.chg6m)}</td>
+    <td class="${sign(x.chg1y)}">${chgTxt(x.chg1y)}</td>
     <td>${x.mcap != null ? cur(x.mcap) : "—"}</td>
     <td>${numFmt(x.vol)}</td></tr>`).join("");
   $("#tableView").innerHTML = `<div style="overflow-x:auto"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
@@ -769,12 +783,12 @@ const tip = $("#tooltip");
 document.addEventListener("mousemove", e => {
   const svg = e.target.closest(".spark");
   if (!svg) { tip.style.display = "none"; return; }
-  const x = byT[svg.dataset.t]; if (!x || !x.dates) { return; }
+  const x = byT[svg.dataset.t]; if (!x || !(x.dates || x.d0)) { return; }
   const s = seriesOf(x); if (s.v.length < 2) { tip.style.display = "none"; return; }
   const r = svg.getBoundingClientRect();
   const i = Math.max(0, Math.min(s.v.length - 1,
     Math.round((e.clientX - r.left) / r.width * (s.v.length - 1))));
-  tip.innerHTML = `<b>${s.d[i]}</b>$${fmt(s.v[i])}`;
+  tip.innerHTML = `<b>${dateAt(x, s.i0 + i)}</b>$${fmt(s.v[i])}`;
   tip.style.display = "block";
   tip.style.left = Math.min(e.clientX + 14, innerWidth - 130) + "px";
   tip.style.top = (e.clientY - 40) + "px";
