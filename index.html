@@ -277,6 +277,10 @@
       <button data-v="cards" class="on">카드</button>
       <button data-v="table">테이블</button>
     </div>
+    <div class="seg" id="perSeg" title="스파크라인·등락률 기간">
+      <button data-p="1m" class="on">1개월</button>
+      <button data-p="3m">3개월</button>
+    </div>
     <button id="favBtn" class="favbtn" title="즐겨찾기만 보기">★ 즐겨찾기</button>
     <a href="map.html" class="favbtn" title="finviz식 히트맵" style="text-decoration:none">🗺 히트맵</a>
   </div>
@@ -298,7 +302,7 @@
 <footer>
   <span id="ver"></span>
   데이터: Yahoo Finance(지연 시세 가능) · 뉴스: Google News RSS · 매일 아침 자동 갱신<br>
-  표시 색상: <b style="color:var(--up)">빨강 = 상승</b> · <b style="color:var(--down)">파랑 = 하락</b> · 스파크라인은 최근 1개월 종가. 투자 판단은 본인 책임.
+  표시 색상: <b style="color:var(--up)">빨강 = 상승</b> · <b style="color:var(--down)">파랑 = 하락</b> · 스파크라인은 선택 기간(1개월/3개월) 종가. 투자 판단은 본인 책임.
 </footer>
 
 <script>document.write('<scr'+'ipt src="financials.js?t='+Date.now()+'"><\/scr'+'ipt>');</script>
@@ -311,7 +315,17 @@ const D = window.STOCK_DATA;
 const $ = s => document.querySelector(s);
 const fmt = n => n.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const sign = c => c > 0 ? "u" : c < 0 ? "d" : "f";
-const chgTxt = c => (c > 0 ? "+" : "") + c.toFixed(2) + "%";
+const chgTxt = c => (c == null || isNaN(c)) ? "—" : (c > 0 ? "+" : "") + c.toFixed(2) + "%";
+
+// ---- 기간(1개월/3개월). spark/dates는 3개월 전체, i1m부터 자르면 1개월 구간
+let PERIOD = (() => { try { return localStorage.getItem("sb_period") === "3m" ? "3m" : "1m"; } catch (e) { return "1m"; } })();
+const perLabel = () => PERIOD === "3m" ? "3개월" : "1개월";
+function seriesOf(x) {
+  const v = x.spark || [];
+  const i = (PERIOD === "1m" && Number.isInteger(x.i1m)) ? x.i1m : 0;
+  return { v: v.slice(i), d: (x.dates || []).slice(i) };
+}
+const chgOf = x => PERIOD === "3m" ? (x.chg3m != null ? x.chg3m : null) : x.chg1m;
 
 // ---- header meta
 const all = D.groups.flatMap(g => g.tickers);
@@ -413,11 +427,13 @@ $("#themes").innerHTML = D.theme_news.map(th => `
 // ---- sparkline
 function sparkSVG(x) {
   const w = 240, h = 44, p = 3;
-  const v = x.spark, min = Math.min(...v), max = Math.max(...v), rng = (max - min) || 1;
+  const v = seriesOf(x).v;
+  if (v.length < 2) return `<svg class="spark" viewBox="0 0 ${w} ${h}" data-t="${x.t}"></svg>`;
+  const min = Math.min(...v), max = Math.max(...v), rng = (max - min) || 1;
   const px = i => p + i * (w - 2*p) / (v.length - 1);
   const py = c => h - p - (c - min) * (h - 2*p) / rng;
   const line = v.map((c,i) => `${i?"L":"M"}${px(i).toFixed(1)},${py(c).toFixed(1)}`).join("");
-  const col = x.chg1m >= 0 ? "var(--up)" : "var(--down)";
+  const col = (chgOf(x) ?? 0) >= 0 ? "var(--up)" : "var(--down)";
   return `<svg class="spark" viewBox="0 0 ${w} ${h}" data-t="${x.t}" preserveAspectRatio="none">
     <path d="${line}L${w-p},${h}L${p},${h}Z" fill="${col}" opacity=".08" stroke="none"/>
     <path d="${line}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
@@ -433,7 +449,7 @@ function cardHTML(x) {
     <div class="top"><span class="tkr">${x.t}</span><span class="kr">${x.kr}</span>${news ? '<span class="newsdot" title="뉴스 있음"></span>' : ""}${starHTML(x.t)}</div>
     <div class="row2"><span class="price">$${fmt(x.price)}</span><span class="pill ${sign(x.chg)==="d"?"d":"u"}" style="${x.chg===0?"color:var(--ink2);background:none":""}">${chgTxt(x.chg)}</span></div>
     ${sparkSVG(x)}
-    <div class="m1">1개월 <b class="${x.chg1m>=0?"u":"d"}">${chgTxt(x.chg1m)}</b><span style="float:right;color:var(--ink3)">재무·뉴스 ›</span></div>
+    <div class="m1">${perLabel()} <b class="${(chgOf(x) ?? 0)>=0?"u":"d"}">${chgTxt(chgOf(x))}</b><span style="float:right;color:var(--ink3)">재무·뉴스 ›</span></div>
   </div>`;
 }
 function groupNewsHTML(name) {
@@ -468,7 +484,8 @@ function numFmt(v) {
 const tableRows = D.groups.flatMap(g => g.tickers.map(x => ({...x, g: g.name})));
 const SORT_COLS = [
   {key:"t", label:"티커"}, {key:"kr", label:"이름"}, {key:"g", label:"그룹"},
-  {key:"price", label:"종가"}, {key:"chg", label:"전일比"}, {key:"chg1m", label:"1개월"},
+  {key:"price", label:"종가"}, {key:"chg", label:"전일比"},
+  {key:"chg1m", label:"1개월"}, {key:"chg3m", label:"3개월"},
   {key:"mcap", label:"시가총액"}, {key:"vol", label:"거래량"},
 ];
 const STR_KEYS = new Set(["t", "kr", "g"]);
@@ -495,6 +512,7 @@ function renderTable() {
     <td>$${fmt(x.price)}</td>
     <td class="${sign(x.chg)}">${chgTxt(x.chg)}</td>
     <td class="${sign(x.chg1m)}">${chgTxt(x.chg1m)}</td>
+    <td class="${sign(x.chg3m)}">${chgTxt(x.chg3m)}</td>
     <td>${x.mcap != null ? cur(x.mcap) : "—"}</td>
     <td>${numFmt(x.vol)}</td></tr>`).join("");
   $("#tableView").innerHTML = `<div style="overflow-x:auto"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
@@ -522,6 +540,19 @@ $("#viewSeg").addEventListener("click", e => {
   $("#tableView").classList.toggle("hidden", b.dataset.v !== "table");
   applyFilter();
 });
+
+// ---- 기간 토글 (카드 스파크라인/등락률: 1개월 ↔ 3개월)
+$("#perSeg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b || b.dataset.p === PERIOD) return;
+  document.querySelectorAll("#perSeg button").forEach(x => x.classList.toggle("on", x === b));
+  PERIOD = b.dataset.p;
+  try { localStorage.setItem("sb_period", PERIOD); } catch (err) {}
+  renderCards();
+  applyFilter();
+});
+(function initPeriodBtn() {
+  document.querySelectorAll("#perSeg button").forEach(x => x.classList.toggle("on", x.dataset.p === PERIOD));
+})();
 
 // ---- search + 즐겨찾기 필터 (통합)
 function applyFilter() {
@@ -739,10 +770,11 @@ document.addEventListener("mousemove", e => {
   const svg = e.target.closest(".spark");
   if (!svg) { tip.style.display = "none"; return; }
   const x = byT[svg.dataset.t]; if (!x || !x.dates) { return; }
+  const s = seriesOf(x); if (s.v.length < 2) { tip.style.display = "none"; return; }
   const r = svg.getBoundingClientRect();
-  const i = Math.max(0, Math.min(x.spark.length - 1,
-    Math.round((e.clientX - r.left) / r.width * (x.spark.length - 1))));
-  tip.innerHTML = `<b>${x.dates[i]}</b>$${fmt(x.spark[i])}`;
+  const i = Math.max(0, Math.min(s.v.length - 1,
+    Math.round((e.clientX - r.left) / r.width * (s.v.length - 1))));
+  tip.innerHTML = `<b>${s.d[i]}</b>$${fmt(s.v[i])}`;
   tip.style.display = "block";
   tip.style.left = Math.min(e.clientX + 14, innerWidth - 130) + "px";
   tip.style.top = (e.clientY - 40) + "px";

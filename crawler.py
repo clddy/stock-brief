@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """stock-brief crawler — 미국주식 워치리스트 시세+뉴스 수집기.
 
-yfinance로 시세(1개월 일봉)를 배치 수집하고,
+yfinance로 시세(3개월 일봉)를 배치 수집하고,
 급등락 종목·테마별 뉴스(Google News RSS)를 모아 data.js로 내보낸다.
 대시보드(index.html)는 file:// 에서도 열리도록 JSON 대신 data.js를 읽는다.
 """
@@ -36,9 +36,13 @@ def log(msg):
 
 
 def fetch_quotes(tickers):
-    """1개월 일봉 배치 다운로드 → {ticker: {price, chg, spark, ...}}"""
+    """3개월 일봉 배치 다운로드 → {ticker: {price, chg, spark(3개월), i1m, chg1m, chg3m, ...}}
+
+    spark/dates 는 3개월 전체를 담고, 1개월 구간은 i1m 인덱스부터 잘라 쓴다
+    (대시보드에서 1개월/3개월 토글).
+    """
     df = yf.download(
-        tickers, period="1mo", interval="1d",
+        tickers, period="3mo", interval="1d",
         auto_adjust=True, group_by="ticker", threads=True, progress=False,
     )
     out = {}
@@ -47,16 +51,27 @@ def fetch_quotes(tickers):
             closes = df[t]["Close"].dropna()
             if len(closes) < 2:
                 continue
+            idx = closes.index
             last = float(closes.iloc[-1])
             prev = float(closes.iloc[-2])
             first = float(closes.iloc[0])
+            # 1개월 구간 시작 = 마지막 거래일 기준 30일 전 이후의 첫 거래일
+            cutoff = idx[-1] - timedelta(days=30)
+            i1m = 0
+            for i, d in enumerate(idx):
+                if d >= cutoff:
+                    i1m = i
+                    break
+            base1m = float(closes.iloc[i1m])
             out[t] = {
                 "price": round(last, 2),
                 "chg": round((last - prev) / prev * 100, 2),
-                "chg1m": round((last - first) / first * 100, 2),
+                "chg1m": round((last - base1m) / base1m * 100, 2) if base1m else None,
+                "chg3m": round((last - first) / first * 100, 2) if first else None,
+                "i1m": i1m,
                 "spark": [round(float(c), 2) for c in closes.tolist()],
-                "dates": [str(d.date()) for d in closes.index],
-                "asof": str(closes.index[-1].date()),
+                "dates": [str(d.date()) for d in idx],
+                "asof": str(idx[-1].date()),
             }
             try:
                 vols = df[t]["Volume"].dropna()

@@ -98,6 +98,7 @@
     <div class="seg" id="modeSeg">
       <button data-m="chg" class="on">일간</button>
       <button data-m="chg1m">1개월</button>
+      <button data-m="chg3m">3개월</button>
     </div>
   </div>
 </header>
@@ -115,7 +116,9 @@
 <script>
 const D = window.STOCK_DATA;
 const $ = s => document.querySelector(s);
-let MODE = "chg"; // chg | chg1m
+let MODE = "chg"; // chg | chg1m | chg3m
+const MODE_LABEL = { chg: "당일", chg1m: "1개월", chg3m: "3개월" };
+const MODE_CAP   = { chg: 4,      chg1m: 12,     chg3m: 20 };
 
 // ---------- helpers ----------
 function fmtMcap(v){
@@ -125,7 +128,7 @@ function fmtMcap(v){
   if (v >= 1e6)  return "$" + (v/1e6).toFixed(0) + "M";
   return "$" + v.toFixed(0);
 }
-function pctStr(v){ return (v>0?"+":"") + (v==null?"—":v.toFixed(2)) + "%"; }
+function pctStr(v){ if (v==null||isNaN(v)) return "—"; return (v>0?"+":"") + v.toFixed(2) + "%"; }
 
 // color: neutral gray -> red(up) / blue(down), intensity by |v| capped at CAP
 function lerp(a,b,t){ return Math.round(a+(b-a)*t); }
@@ -133,7 +136,7 @@ function hex(c){ return c.map(x=>x.toString(16).padStart(2,"0")).join(""); }
 function isDark(){ return window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches; }
 function colorFor(v){
   if (v == null || isNaN(v)) return isDark()? "#3a3a3c" : "#c7c7cc";
-  const CAP = (MODE === "chg1m") ? 12 : 4;          // saturate at ±CAP%
+  const CAP = MODE_CAP[MODE] || 4;                  // saturate at ±CAP%
   const dark = isDark();
   const neutral = dark ? [58,58,60] : [142,142,147]; // gray
   const up  = dark ? [255,69,58]  : [215,0,21];      // red
@@ -218,6 +221,11 @@ function buildGroups(){
 function render(){
   const map = $("#map");
   const W = map.clientWidth;
+  if (!W){   // 숨겨진 탭/미배치 상태 → 폭이 잡힐 때까지 재시도 (빈 화면 방지)
+    clearTimeout(render._t);
+    render._t = setTimeout(()=>{ render(); legend(); }, 300);
+    return;
+  }
   const H = Math.max(520, Math.min(920, Math.round(W * 0.62)));
   map.style.height = H + "px";
   map.innerHTML = "";
@@ -251,7 +259,7 @@ function render(){
       const el = document.createElement("div");
       el.className = "tile";
       const x=tl.x+TILEGAP/2, y=innerY+tl.y+TILEGAP/2, w=Math.max(0,tl.w-TILEGAP), h=Math.max(0,tl.h-TILEGAP);
-      const v = MODE==="chg" ? t.chg : t.chg1m;
+      const v = t[MODE];
       el.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:${colorFor(v)}`;
       // label sizing based on tile area
       const fs = Math.max(8, Math.min(22, Math.round(Math.sqrt(w*h)/5.2)));
@@ -268,20 +276,21 @@ function render(){
   });
 
   // breadth + meta
-  const vals = ALL.map(t => MODE==="chg"?t.chg:t.chg1m).filter(v=>v!=null&&!isNaN(v));
+  const vals = ALL.map(t => t[MODE]).filter(v=>v!=null&&!isNaN(v));
   const up = vals.filter(v=>v>0).length, dn = vals.filter(v=>v<0).length, fl = vals.length-up-dn;
   $("#breadth").innerHTML = `<span class="u">▲ ${up}</span><span class="d">▼ ${dn}</span><span style="color:var(--ink3)">= ${fl}</span>`;
   $("#meta").textContent = (D.generated_at ? D.generated_at.replace("T"," ") : "") + " · " + ALL.length + "종목 · 크기=시가총액";
-  $("#foot").textContent = "네모 크기 = 시가총액 · 색 = " + (MODE==="chg"?"당일 등락률":"1개월 등락률") + " (빨강=상승 · 파랑=하락, 한국식)";
+  $("#foot").textContent = "네모 크기 = 시가총액 · 색 = " + MODE_LABEL[MODE] + " 등락률 (빨강=상승 · 파랑=하락, 한국식)";
 }
 
 // legend
 function legend(){
-  const steps = MODE==="chg" ? [-4,-2,-1,0,1,2,4] : [-12,-6,-3,0,3,6,12];
+  const c = MODE_CAP[MODE] || 4;
+  const steps = [-c, -c/2, -c/4, 0, c/4, c/2, c];
   const el = $("#legend");
-  el.innerHTML = `<b>${MODE==="chg"?"당일":"1개월"}</b>&nbsp;` +
+  el.innerHTML = `<b>${MODE_LABEL[MODE]}</b>&nbsp;` +
     steps.map(v=>`<span class="sw" style="background:${colorFor(v)}" title="${pctStr(v)}"></span>`).join("") +
-    `&nbsp;<span>${MODE==="chg"?"−4%":"−12%"} → +${MODE==="chg"?"4%":"12%"}</span>`;
+    `&nbsp;<span>−${c}% → +${c}%</span>`;
 }
 
 // tooltip
@@ -292,7 +301,8 @@ function showTip(t, ev){
     `<div class="tn">${t.kr||""} · ${t.grp}</div>`+
     `<div class="tr"><span>종가</span><span>$${t.price!=null?t.price.toFixed(2):"—"}</span></div>`+
     `<div class="tr"><span>당일</span><span class="${t.chg>=0?"up":"down"}">${pctStr(t.chg)}</span></div>`+
-    `<div class="tr"><span>1개월</span><span class="${t.chg1m>=0?"up":"down"}">${pctStr(t.chg1m)}</span></div>`;
+    `<div class="tr"><span>1개월</span><span class="${t.chg1m>=0?"up":"down"}">${pctStr(t.chg1m)}</span></div>`+
+    `<div class="tr"><span>3개월</span><span class="${t.chg3m>=0?"up":"down"}">${pctStr(t.chg3m)}</span></div>`;
   tip.style.opacity = 1;
   moveTip(ev);
 }
@@ -323,6 +333,14 @@ $("#modeSeg").addEventListener("click", e=>{
 });
 
 let rt; addEventListener("resize", ()=>{ clearTimeout(rt); rt=setTimeout(()=>{render();legend();},150); });
+// 숨겨진 탭 등으로 컨테이너 폭이 0일 때는 그려지지 않으므로, 폭이 잡히면 자동 재렌더
+if (window.ResizeObserver){
+  let lastW = 0;
+  new ResizeObserver(()=>{
+    const w = $("#map").clientWidth;
+    if (w > 0 && Math.abs(w - lastW) > 1){ lastW = w; render(); legend(); }
+  }).observe($("#map"));
+}
 matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", ()=>{render();legend();});
 
 render(); legend();
