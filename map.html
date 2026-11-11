@@ -101,6 +101,7 @@
       <button data-m="chg3m">3개월</button>
       <button data-m="chg6m">6개월</button>
       <button data-m="chg1y">1년</button>
+      <button data-m="mfi" title="MFI(14) 자금흐름지수: 80↑ 과매수 · 20↓ 과매도">MFI</button>
     </div>
   </div>
 </header>
@@ -119,8 +120,10 @@
 const D = window.STOCK_DATA;
 const $ = s => document.querySelector(s);
 let MODE = "chg"; // chg | chg1m | chg3m | chg6m | chg1y
-const MODE_LABEL = { chg: "당일", chg1m: "1개월", chg3m: "3개월", chg6m: "6개월", chg1y: "1년" };
-const MODE_CAP   = { chg: 4,      chg1m: 12,     chg3m: 20,     chg6m: 30,     chg1y: 50 };
+const MODE_LABEL = { chg: "당일", chg1m: "1개월", chg3m: "3개월", chg6m: "6개월", chg1y: "1년", mfi: "MFI(14)" };
+const MODE_CAP   = { chg: 4,      chg1m: 12,     chg3m: 20,     chg6m: 30,     chg1y: 50,    mfi: 30 };
+// MFI 모드: 50 중심으로 색칠(80↑ 과매수=빨강, 20↓ 과매도=파랑). 라벨은 % 대신 지수값
+const valStr = v => MODE === "mfi" ? (v == null || isNaN(v) ? "—" : String(Math.round(v))) : pctStr(v);
 
 // ---------- helpers ----------
 function fmtMcap(v){
@@ -138,6 +141,7 @@ function hex(c){ return c.map(x=>x.toString(16).padStart(2,"0")).join(""); }
 function isDark(){ return window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches; }
 function colorFor(v){
   if (v == null || isNaN(v)) return isDark()? "#3a3a3c" : "#c7c7cc";
+  if (MODE === "mfi") v = v - 50;
   const CAP = MODE_CAP[MODE] || 4;                  // saturate at ±CAP%
   const dark = isDark();
   const neutral = dark ? [58,58,60] : [142,142,147]; // gray
@@ -269,7 +273,7 @@ function render(){
       const showPc = w>34 && h>30;
       if (showTxt){
         el.innerHTML = `<div class="tk" style="font-size:${fs}px">${t.t}</div>` +
-          (showPc ? `<div class="pc" style="font-size:${Math.max(8,fs*0.66)}px">${pctStr(v)}</div>` : "");
+          (showPc ? `<div class="pc" style="font-size:${Math.max(8,fs*0.66)}px">${valStr(v)}</div>` : "");
       }
       el.dataset.t = t.t;
       box.appendChild(el);
@@ -280,16 +284,28 @@ function render(){
   // breadth + meta
   const vals = ALL.map(t => t[MODE]).filter(v=>v!=null&&!isNaN(v));
   const up = vals.filter(v=>v>0).length, dn = vals.filter(v=>v<0).length, fl = vals.length-up-dn;
-  $("#breadth").innerHTML = `<span class="u">▲ ${up}</span><span class="d">▼ ${dn}</span><span style="color:var(--ink3)">= ${fl}</span>`;
+  if (MODE === "mfi") {
+    const hot = vals.filter(v=>v>=80).length, cold = vals.filter(v=>v<=20).length;
+    $("#breadth").innerHTML = `<span class="u">과매수 ${hot}</span><span class="d">과매도 ${cold}</span><span style="color:var(--ink3)">중립 ${vals.length-hot-cold}</span>`;
+  } else {
+    $("#breadth").innerHTML = `<span class="u">▲ ${up}</span><span class="d">▼ ${dn}</span><span style="color:var(--ink3)">= ${fl}</span>`;
+  }
   $("#meta").textContent = (D.generated_at ? D.generated_at.replace("T"," ") : "") + " · " + ALL.length + "종목 · 크기=시가총액";
-  $("#foot").textContent = "네모 크기 = 시가총액 · 색 = " + MODE_LABEL[MODE] + " 등락률 (빨강=상승 · 파랑=하락, 한국식)";
+  $("#foot").textContent = MODE === "mfi"
+    ? "네모 크기 = 시가총액 · 색 = MFI(14) 자금흐름지수 (빨강=과매수 80↑ · 파랑=과매도 20↓ · 회색=중립 50)"
+    : "네모 크기 = 시가총액 · 색 = " + MODE_LABEL[MODE] + " 등락률 (빨강=상승 · 파랑=하락, 한국식)";
 }
 
 // legend
 function legend(){
+  const el = $("#legend");
+  if (MODE === "mfi") {
+    el.innerHTML = `<b>MFI(14)</b>&nbsp;` + [20,30,40,50,60,70,80].map(v=>`<span class="sw" style="background:${colorFor(v)}" title="${v}"></span>`).join("") +
+      `&nbsp;<span>20 과매도 → 50 중립 → 80 과매수</span>`;
+    return;
+  }
   const c = MODE_CAP[MODE] || 4;
   const steps = [-c, -c/2, -c/4, 0, c/4, c/2, c];
-  const el = $("#legend");
   el.innerHTML = `<b>${MODE_LABEL[MODE]}</b>&nbsp;` +
     steps.map(v=>`<span class="sw" style="background:${colorFor(v)}" title="${pctStr(v)}"></span>`).join("") +
     `&nbsp;<span>−${c}% → +${c}%</span>`;
@@ -306,7 +322,8 @@ function showTip(t, ev){
     `<div class="tr"><span>1개월</span><span class="${t.chg1m>=0?"up":"down"}">${pctStr(t.chg1m)}</span></div>`+
     `<div class="tr"><span>3개월</span><span class="${t.chg3m>=0?"up":"down"}">${pctStr(t.chg3m)}</span></div>`+
     `<div class="tr"><span>6개월</span><span class="${t.chg6m>=0?"up":"down"}">${pctStr(t.chg6m)}</span></div>`+
-    `<div class="tr"><span>1년</span><span class="${t.chg1y>=0?"up":"down"}">${pctStr(t.chg1y)}</span></div>`;
+    `<div class="tr"><span>1년</span><span class="${t.chg1y>=0?"up":"down"}">${pctStr(t.chg1y)}</span></div>`+
+    `<div class="tr"><span>MFI(14)</span><span class="${t.mfi>=80?"up":t.mfi<=20?"down":""}">${t.mfi==null?"—":Math.round(t.mfi)+(t.mfi>=80?" 과매수":t.mfi<=20?" 과매도":"")}</span></div>`;
   tip.style.opacity = 1;
   moveTip(ev);
 }

@@ -145,6 +145,9 @@
   .pill.d { color: var(--down); background: var(--down-bg); }
   .spark { display: block; width: 100%; height: 44px; margin-top: 8px; cursor: crosshair; }
   .card .m1 { font-size: 11px; color: var(--ink3); margin-top: 4px; }
+  .mfi { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink2); }
+  .mfi.hot { color: var(--up); } .mfi.cold { color: var(--down); }
+  .mfichart { display: block; width: 100%; height: 110px; margin-top: 6px; }
   .card .m1 b.u { color: var(--up); } .card .m1 b.d { color: var(--down); }
   .newsdot {
     display: inline-block; width: 6px; height: 6px; border-radius: 99px;
@@ -304,7 +307,7 @@
 <footer>
   <span id="ver"></span>
   데이터: Yahoo Finance(지연 시세 가능) · 뉴스: Google News RSS · 매일 아침 자동 갱신<br>
-  표시 색상: <b style="color:var(--up)">빨강 = 상승</b> · <b style="color:var(--down)">파랑 = 하락</b> · 스파크라인은 선택 기간(1개월~1년) 종가. 투자 판단은 본인 책임.
+  표시 색상: <b style="color:var(--up)">빨강 = 상승</b> · <b style="color:var(--down)">파랑 = 하락</b> · 스파크라인은 선택 기간(1개월~1년) 종가. MFI(14) 80↑ 과매수·20↓ 과매도. 투자 판단은 본인 책임.
 </footer>
 
 <script>document.write('<scr'+'ipt src="financials.js?t='+Date.now()+'"><\/scr'+'ipt>');</script>
@@ -329,6 +332,10 @@ function seriesOf(x) {
   return { v: (x.spark || []).slice(i0), i0 };
 }
 const chgOf = x => { const v = x["chg" + PERIOD]; return v == null ? null : v; };
+// ---- MFI(14): 80↑ 과매수(빨강) · 20↓ 과매도(파랑)
+const mfiZone = v => v == null ? "" : v >= 80 ? "hot" : v <= 20 ? "cold" : "";
+const mfiWord = v => v == null ? "" : v >= 80 ? "과매수" : v <= 20 ? "과매도" : "중립";
+const mfiTxt = v => v == null ? "—" : (Math.round(v * 10) / 10).toFixed(v % 1 ? 1 : 0);
 // 날짜: 구버전(dates 배열) 또는 압축(d0 시작일 + dd 일수 오프셋). UTC로 계산해 시간대 밀림 방지
 function dateAt(x, i) {
   if (x.dates) return x.dates[i];
@@ -460,7 +467,7 @@ function cardHTML(x) {
     <div class="top"><span class="tkr">${x.t}</span><span class="kr">${x.kr}</span>${news ? '<span class="newsdot" title="뉴스 있음"></span>' : ""}${starHTML(x.t)}</div>
     <div class="row2"><span class="price">$${fmt(x.price)}</span><span class="pill ${sign(x.chg)==="d"?"d":"u"}" style="${x.chg===0?"color:var(--ink2);background:none":""}">${chgTxt(x.chg)}</span></div>
     ${sparkSVG(x)}
-    <div class="m1">${perLabel()} <b class="${(chgOf(x) ?? 0)>=0?"u":"d"}">${chgTxt(chgOf(x))}</b><span style="float:right;color:var(--ink3)">재무·뉴스 ›</span></div>
+    <div class="m1">${perLabel()} <b class="${(chgOf(x) ?? 0)>=0?"u":"d"}">${chgTxt(chgOf(x))}</b>${x.mfi != null ? ` · MFI <span class="mfi ${mfiZone(x.mfi)}" title="MFI(14) ${mfiWord(x.mfi)}">${Math.round(x.mfi)}</span>` : ""}<span style="float:right;color:var(--ink3)">재무·뉴스 ›</span></div>
   </div>`;
 }
 function groupNewsHTML(name) {
@@ -497,7 +504,7 @@ const SORT_COLS = [
   {key:"t", label:"티커"}, {key:"kr", label:"이름"}, {key:"g", label:"그룹"},
   {key:"price", label:"종가"}, {key:"chg", label:"전일比"},
   {key:"chg1m", label:"1개월"}, {key:"chg3m", label:"3개월"},
-  {key:"chg6m", label:"6개월"}, {key:"chg1y", label:"1년"},
+  {key:"chg6m", label:"6개월"}, {key:"chg1y", label:"1년"}, {key:"mfi", label:"MFI(14)"},
   {key:"mcap", label:"시가총액"}, {key:"vol", label:"거래량"},
 ];
 const STR_KEYS = new Set(["t", "kr", "g"]);
@@ -527,6 +534,7 @@ function renderTable() {
     <td class="${sign(x.chg3m)}">${chgTxt(x.chg3m)}</td>
     <td class="${sign(x.chg6m)}">${chgTxt(x.chg6m)}</td>
     <td class="${sign(x.chg1y)}">${chgTxt(x.chg1y)}</td>
+    <td><span class="mfi ${mfiZone(x.mfi)}">${mfiTxt(x.mfi)}</span></td>
     <td>${x.mcap != null ? cur(x.mcap) : "—"}</td>
     <td>${numFmt(x.vol)}</td></tr>`).join("");
   $("#tableView").innerHTML = `<div style="overflow-x:auto"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
@@ -691,6 +699,29 @@ function waterfallSVG(an) {
   });
   return `<svg class="revchart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
 }
+// ---- 상세 모달: 선택 기간의 MFI(14) 추이 + 20/80 기준선
+function mfiHTML(x) {
+  if (!x.mfis || x.mfi == null) return "";
+  const s = seriesOf(x), all = x.mfis.slice(s.i0);
+  const pts = all.map((v, i) => [i, v]).filter(p => p[1] != null);
+  if (pts.length < 2) return "";
+  const w = 600, h = 110, p = 4, n = all.length;
+  const px = i => p + i * (w - 2*p) / Math.max(1, n - 1);
+  const py = v => h - p - v * (h - 2*p) / 100;
+  const line = pts.map(([i, v], k) => `${k ? "L" : "M"}${px(i).toFixed(1)},${py(v).toFixed(1)}`).join("");
+  const last = x.mfi, col = last >= 80 ? "var(--up)" : last <= 20 ? "var(--down)" : "var(--accent)";
+  return `<h4>MFI(14) 자금흐름지수 <small>${perLabel()} 추이 · 현재 <span class="mfi ${mfiZone(last)}">${mfiTxt(last)} ${mfiWord(last)}</span></small></h4>
+  <svg class="mfichart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <rect x="0" y="${py(100)}" width="${w}" height="${py(80)-py(100)}" fill="var(--up)" opacity=".07"/>
+    <rect x="0" y="${py(20)}" width="${w}" height="${py(0)-py(20)}" fill="var(--down)" opacity=".07"/>
+    <line x1="0" x2="${w}" y1="${py(80)}" y2="${py(80)}" stroke="var(--up)" stroke-dasharray="4 4" opacity=".5" vector-effect="non-scaling-stroke"/>
+    <line x1="0" x2="${w}" y1="${py(50)}" y2="${py(50)}" stroke="var(--ink3)" stroke-dasharray="2 4" opacity=".5" vector-effect="non-scaling-stroke"/>
+    <line x1="0" x2="${w}" y1="${py(20)}" y2="${py(20)}" stroke="var(--down)" stroke-dasharray="4 4" opacity=".5" vector-effect="non-scaling-stroke"/>
+    <path d="${line}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+  </svg>
+  <div style="font-size:11px;color:var(--ink3);margin-top:4px">14일간 거래대금 가중 매수/매도 압력. 80↑ 과매수 · 20↓ 과매도 (점선). 단기 지표라 6개월 보유 판단엔 보조로만.</div>`;
+}
+
 function openDetail(tk) {
   const x = byT[tk]; if (!x) return;
   const f = FIN[tk];
@@ -701,6 +732,7 @@ function openDetail(tk) {
     <button class="mclose" onclick="closeDetail()">✕</button>
   </div><div class="mbody">`;
 
+  h += mfiHTML(x);
   const segH = segmentHTML(tk);
   h += segH;
 

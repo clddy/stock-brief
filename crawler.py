@@ -38,6 +38,42 @@ def log(msg):
 HORIZONS = {"1m": 30, "3m": 91, "6m": 182, "1y": 365}   # 기간 키 → 달력일수
 
 
+MFI_N = 14
+
+
+def mfi14(frame, idx):
+    """MFI(14) 시계열 → spark 인덱스에 맞춘 리스트(앞 14개는 None, 이후 0~100 정수; 마지막 값만 소수 1자리).
+
+    전형가 TP=(H+L+C)/3, 자금흐름=TP×거래량. TP가 전일보다 오르면 양(+), 내리면 음(-) 흐름.
+    MFI = 100 - 100/(1 + 14일 양흐름합/14일 음흐름합). 음흐름이 0이면 100.
+    """
+    try:
+        f = frame.loc[idx, ["High", "Low", "Close", "Volume"]]
+    except Exception:
+        return None
+    tp = (f["High"] + f["Low"] + f["Close"]) / 3
+    flow = tp * f["Volume"]
+    diff = tp.diff()
+    pos = flow.where(diff > 0, 0.0).where(diff.notna())
+    neg = flow.where(diff < 0, 0.0).where(diff.notna())
+    ps = pos.rolling(MFI_N).sum()
+    ns = neg.rolling(MFI_N).sum()
+    out = []
+    for p_, n_ in zip(ps.tolist(), ns.tolist()):
+        if p_ != p_ or n_ != n_ or (p_ == 0 and n_ == 0):   # NaN 또는 거래 없음
+            out.append(None)
+        elif n_ == 0:
+            out.append(100.0)
+        else:
+            out.append(100 - 100 / (1 + p_ / n_))
+    if not out or out[-1] is None:
+        return None
+    last = round(out[-1], 1)
+    out = [None if v is None else int(round(v)) for v in out]
+    out[-1] = last
+    return out
+
+
 def fetch_quotes(tickers):
     """1년 일봉 배치 다운로드 → {ticker: {price, chg, spark(1년), i1m/i3m/i6m/i1y, chg1m/3m/6m/1y, ...}}
 
@@ -71,6 +107,10 @@ def fetch_quotes(tickers):
                 rec["i" + key] = i0
                 rec["chg" + key] = (round((last - base) / base * 100, 2)
                                     if base and span_days >= days * 0.9 else None)
+            mfi = mfi14(df[t], idx)
+            if mfi is not None:
+                rec["mfi"] = mfi[-1]
+                rec["mfis"] = mfi
             d0 = idx[0].date()
             rec["spark"] = [round(float(c), 2) for c in closes.tolist()]
             rec["d0"] = str(d0)
