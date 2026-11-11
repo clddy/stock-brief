@@ -76,40 +76,82 @@ LLM_MAX_PER_RUN = 400    # 한 번 실행에 LLM 으로 처리할 최대 제목 
 _SKIP_MODEL = ("lite", "preview", "exp", "thinking", "tts", "image", "live", "audio", "embedding", "learnlm")
 
 
-def resolve_gemini_model(key, preferred):
-    """설정 모델이 살아 있으면 그대로, 없으면(종료·오타) 사용 가능한 최신 정식 Flash 모델을 고른다."""
-    h = {"x-goog-api-key": key}
+class Unavailable(Exception):
+    """모델 과부하(503)·서버 오류 — 다른 모델로 넘길 대상."""
+
+
+def _probe(key, model, timeout=25):
+    """모델에 아주 작은 요청 1건 → (응답 여부, 코드). 목록에 있어도 404·과부하 타임아웃인 경우가 있어서."""
+    body = {"contents": [{"parts": [{"text": 'Reply JSON [{"ok":1}]'}]}],
+            "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 20}}
     try:
-        if preferred:
-            r = requests.get(f"{GEMINI_BASE}/models/{preferred}", headers=h, timeout=20)
-            if r.status_code == 200:
-                return preferred
-        r = requests.get(f"{GEMINI_BASE}/models", params={"pageSize": 200}, headers=h, timeout=20)
-        r.raise_for_status()
-        cands = []
-        for m in r.json().get("models", []):
-            name = m.get("name", "").split("/")[-1]
-            if "generateContent" not in m.get("supportedGenerationMethods", []):
-                continue
-            if "flash" not in name or any(x in name for x in _SKIP_MODEL):
-                continue
-            v = re.search(r"gemini-(\d+(?:\.\d+)?)", name)
-            if v:
-                cands.append((float(v.group(1)), -len(name), name))   # 버전 높은 것, 같은 버전이면 짧은(기본) 이름
-        if cands:
-            pick = max(cands)[2]
-            log(f"gemini model: '{preferred}' 사용 불가 → '{pick}' 자동 선택")
-            return pick
-        log(f"gemini model: 대체 후보 없음, '{preferred}' 그대로 시도")
+        r = requests.post(f"{GEMINI_BASE}/models/{model}:generateContent",
+                          headers={"x-goog-api-key": key}, json=body, timeout=timeout)
+        return r.status_code == 200, r.status_code
     except Exception as e:
-        log(f"gemini model 확인 실패 ({type(e).__name__}) — '{preferred}' 그대로 시도")
-    return preferred
+        return False, type(e).__name__
+
+
+def resolve_gemini_models(key, preferred, want=3):
+    """시험 호출에 응답하는 Flash 모델을 최대 want 개, 우선순위대로 반환(설정 모델 → 최신 정식 Flash).
+    2026-11-11 실측: 종료 모델도 GET models/<이름> 은 200, 목록에 있어도 '신규 사용자 제공 중단' 404,
+    최신 3.7·3.8 은 40초 타임아웃, 3.6 은 작은 요청만 되고 큰 요청은 503(수요 폭주) → 목록만 믿지 않는다."""
+    try:
+        r = requests.get(f"{GEMINI_BASE}/models", params={"pageSize": 200},
+                         headers={"x-goog-api-key": key}, timeout=20)
+        r.raise_for_status()
+        usable = [m.get("name", "").split("/")[-1] for m in r.json().get("models", [])
+                  if "generateContent" in m.get("supportedGenerationMethods", [])]
+    except Exception as e:
+        log(f"gemini 모델 목록 실패 ({type(e).__name__}) — '{preferred}' 만 시도")
+        return [preferred] if preferred else []
+    cands = []
+    for name in usable:
+        if "flash" not in name or any(x in name for x in _SKIP_MODEL):
+            continue
+        v = re.search(r"gemini-(\d+(?:\.\d+)?)", name)
+        if v:
+            cands.append((float(v.group(1)), -len(name), name))
+    order = ([preferred] if preferred in usable else []) + \
+            [n for _, _, n in sorted(cands, reverse=True) if n != preferred]
+    ok_models, tried = [], []
+    for name in order[:7]:
+        ok, code = _probe(key, name)
+        tried.append(f"{name}={'OK' if ok else code}")
+        if ok:
+            ok_models.append(name)
+            if len(ok_models) >= want:
+                break
+    log(f"gemini 모델 시험: {', '.join(tried)} → 사용 순서 {ok_models or '없음'}")
+    return ok_models
+
+
+# 항목마다 번호 i 를 받아서, 몇 개가 빠지거나 순서가 바뀌어도 번호로 맞춘다
+PROMPT_IDX = (
+    "\n중요: 각 객체에 입력 번호를 \"i\" 로 넣으세요. 형식: [{\"i\":0,\"ko\":\"...\",\"why\":\"...\"}, ...]\n\n"
+)
+
+
+def _index_results(arr, n):
+    """LLM 출력 → {입력 인덱스: 객체}. i 가 있으면 i 로, 없고 개수가 같으면 순서대로."""
+    out = {}
+    if not isinstance(arr, list):
+        return out
+    if all(isinstance(a, dict) and isinstance(a.get("i"), int) for a in arr):
+        for a in arr:
+            if 0 <= a["i"] < n and a.get("ko"):
+                out[a["i"]] = a
+    elif len(arr) == n:
+        for i, a in enumerate(arr):
+            if isinstance(a, dict) and a.get("ko"):
+                out[i] = a
+    return out
 
 
 def gemini_chunk(titles, key, model):
     numbered = "\n".join(f"{i}. {t}" for i, t in enumerate(titles))
     body = {
-        "contents": [{"parts": [{"text": PROMPT_HEAD + numbered}]}],
+        "contents": [{"parts": [{"text": PROMPT_HEAD + PROMPT_IDX + numbered}]}],
         "generationConfig": {
             "responseMimeType": "application/json",
             "temperature": 0.3,
@@ -117,16 +159,21 @@ def gemini_chunk(titles, key, model):
         },
     }
     # 키는 URL 이 아니라 헤더로 — 오류 메시지(URL 포함)가 로그에 남아도 키가 새지 않게
-    r = requests.post(f"{GEMINI_BASE}/models/{model}:generateContent",
-                      headers={"x-goog-api-key": key}, json=body, timeout=90)
+    try:
+        r = requests.post(f"{GEMINI_BASE}/models/{model}:generateContent",
+                          headers={"x-goog-api-key": key}, json=body, timeout=120)
+    except requests.exceptions.Timeout:
+        raise Unavailable("timeout")
     if r.status_code == 429:
         ra = r.headers.get("Retry-After")
         raise RateLimited(float(ra) if ra and ra.replace(".", "", 1).isdigit() else 40.0)
+    if r.status_code in (500, 502, 503, 504):
+        raise Unavailable(f"HTTP {r.status_code}")
     if r.status_code >= 400:
         raise RuntimeError(f"gemini HTTP {r.status_code}")
     data = r.json()
     text = data["candidates"][0]["content"]["parts"][0]["text"]
-    return _parse_json_array(text)
+    return _index_results(_parse_json_array(text), len(titles))
 
 
 def claude_chunk(titles, key):
@@ -135,42 +182,59 @@ def claude_chunk(titles, key):
     numbered = "\n".join(f"{i}. {t}" for i, t in enumerate(titles))
     resp = client.messages.create(
         model=CLAUDE_MODEL, max_tokens=8000,
-        messages=[{"role": "user", "content": PROMPT_HEAD + numbered}])
+        messages=[{"role": "user", "content": PROMPT_HEAD + PROMPT_IDX + numbered}])
     text = "".join(b.text for b in resp.content
                    if getattr(b, "type", "") == "text")
-    return _parse_json_array(text)
+    return _index_results(_parse_json_array(text), len(titles))
 
 
-def llm_partial(titles, fn, engine, pause=LLM_PAUSE):
-    """titles 를 CHUNK 단위로 순서대로 처리. 반환: {인덱스: {ko, why, engine}} (성공한 것만).
-    묶음 실패(형식 오류 등)는 건너뛰고, 429 는 한 번 기다렸다 재시도, 또 막히면 거기서 중단."""
-    got = {}
+def llm_partial(titles, fns, engine, pause=LLM_PAUSE):
+    """titles 를 CHUNK 단위로 처리. fns = [(이름, fn)] 우선순위 목록(모델 순환).
+    반환: {인덱스: {ko, why, engine}} — 묶음에서 일부만 와도 받은 만큼 저장.
+      · 429: 한 번 기다렸다 재시도, 또 막히면 전체 중단
+      · 503/타임아웃(과부하): 그 모델을 뒤로 미루고 다음 모델로 같은 묶음 재시도
+      · 그 외 실패: 그 묶음 건너뜀. 묶음 연속 2번 실패(0건)면 중단"""
+    got, fails, fns = {}, 0, list(fns)
     for n, s in enumerate(range(0, len(titles), CHUNK)):
+        if fails >= 2 or not fns:
+            log(f"{engine} 중단 (연속 실패 또는 쓸 모델 없음) — 성공 {len(got)}건")
+            break
         part = titles[s:s + CHUNK]
         if n:
             time.sleep(pause)
-        arr = None
-        for attempt in range(2):
+        res, waited, tries, rested = None, False, 0, False
+        while fns and tries < 2 * len(fns) + 1:
+            if tries == len(fns) and not rested:
+                rested = True                        # 모든 모델이 과부하 → 수요 폭주는 보통 짧아서 30초 쉬고 한 바퀴 더
+                log(f"{engine} 모든 모델 과부하 — 30초 대기 후 한 바퀴 더")
+                time.sleep(30)
+            name, fn = fns[0]
+            tries += 1
             try:
-                arr = fn(part)
+                res = fn(part)
                 break
             except RateLimited as e:
-                if attempt == 0:
-                    log(f"{engine} 429 — {e.wait:.0f}초 대기 후 재시도")
-                    time.sleep(e.wait)
-                    continue
-                log(f"{engine} 429 반복 — 중단 (성공 {len(got)}건, 나머지는 다음 엔진/다음 실행)")
-                return got
+                if waited:
+                    log(f"{engine} 429 반복 — 중단 (성공 {len(got)}건, 나머지는 다음 엔진/다음 실행)")
+                    return got
+                waited = True
+                log(f"{engine} 429 — {e.wait:.0f}초 대기 후 재시도")
+                time.sleep(e.wait)
+            except Unavailable as e:
+                log(f"{engine} {name} 과부하({e}) — 다음 모델로")
+                fns.append(fns.pop(0))          # 뒤로 미룸
+                time.sleep(3)
             except Exception as e:
                 log(f"{engine} 묶음 실패 ({type(e).__name__}: {str(e)[:120]}) — 이 묶음 건너뜀")
                 break
-        if not arr or len(arr) != len(part):
-            if arr:
-                log(f"{engine} 개수 불일치 {len(arr)} vs {len(part)} — 이 묶음 건너뜀")
+        if not res:
+            fails += 1
             continue
-        for i, a in enumerate(arr):
-            if isinstance(a, dict) and a.get("ko"):
-                got[s + i] = {"ko": a.get("ko", ""), "why": a.get("why", ""), "engine": engine}
+        fails = 0
+        if len(res) < len(part):
+            log(f"{engine} 묶음 {len(res)}/{len(part)}건만 응답 — 받은 것만 저장")
+        for i, a in res.items():
+            got[s + i] = {"ko": a.get("ko", ""), "why": a.get("why", ""), "engine": engine}
     return got
 
 
@@ -251,15 +315,17 @@ def enrich(titles, cfg):
     llm_idx = list(range(min(len(titles), LLM_MAX_PER_RUN)))
 
     if gkey and llm_idx:
-        model = resolve_gemini_model(gkey, (cfg.get("gemini_model") or "").strip())
-        got = llm_partial([titles[i] for i in llm_idx], lambda p: gemini_chunk(p, gkey, model), "gemini")
-        for j, r in got.items():
-            out[llm_idx[j]] = dict(r, ok=True)
-        log(f"gemini ok ({len(got)}/{len(llm_idx)}, model={model})")
-        llm_idx = [i for i in llm_idx if out[i] is None]
+        models = resolve_gemini_models(gkey, (cfg.get("gemini_model") or "").strip())
+        if models:
+            fns = [(m, (lambda p, m=m: gemini_chunk(p, gkey, m))) for m in models]
+            got = llm_partial([titles[i] for i in llm_idx], fns, "gemini")
+            for j, r in got.items():
+                out[llm_idx[j]] = dict(r, ok=True)
+            log(f"gemini ok ({len(got)}/{len(llm_idx)}, models={models})")
+            llm_idx = [i for i in llm_idx if out[i] is None]
 
     if akey and llm_idx:
-        got = llm_partial([titles[i] for i in llm_idx], lambda p: claude_chunk(p, akey), "claude", pause=1.0)
+        got = llm_partial([titles[i] for i in llm_idx], [("claude", lambda p: claude_chunk(p, akey))], "claude", pause=1.0)
         for j, r in got.items():
             out[llm_idx[j]] = dict(r, ok=True)
         log(f"claude ok ({len(got)}/{len(llm_idx)})")
