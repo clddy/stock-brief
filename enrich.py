@@ -362,8 +362,12 @@ def google_translate(titles):
     return out
 
 
-def enrich(titles, cfg):
-    """→ titles 와 같은 순서의 [{ko, why, ok, engine}]. LLM(키 있을 때) 성공분 우선, 나머지는 무료 번역."""
+def enrich(titles, cfg, n_new=None):
+    """→ titles 와 같은 순서의 [{ko, why, ok, engine}] (처리 못 한 항목은 None).
+    titles 는 우선순위 순(새 제목 → 업그레이드 대상). 앞의 n_new 개가 '아직 한국어가 없는 새 제목'.
+    LLM 은 앞에서부터 LLM_MAX_PER_RUN 개, 무료 번역 폴백은 새 제목에만(이미 무료번역된 제목 재전송 금지)."""
+    if n_new is None:
+        n_new = len(titles)
     gkey = (cfg.get("gemini_api_key") or "").strip()
     akey = (cfg.get("anthropic_api_key") or "").strip()
     out = [None] * len(titles)
@@ -385,7 +389,7 @@ def enrich(titles, cfg):
             out[llm_idx[j]] = dict(r, ok=True)
         log(f"claude ok ({len(got)}/{len(llm_idx)})")
 
-    rest = [i for i in range(len(titles)) if out[i] is None]
+    rest = [i for i in range(n_new) if out[i] is None]
     if rest:
         arr = google_translate([titles[i] for i in rest])
         for i, r in zip(rest, arr):
@@ -416,11 +420,22 @@ def main():
     today = datetime.now().strftime("%Y-%m-%d")
     def reusable(c):
         return c and c.get("ko") and (c.get("engine") != "translate" or not llm_on)
-    todo = [t for t in titles if not reusable(cache.get(t))]
-    log(f"cache hit {len(titles) - len(todo)}, to process {len(todo)}")
+    # 우선순위(2026-11-12 사용자 지시): 매일 새로 올라온 뉴스 먼저, 최신순.
+    #   ① new     = 캐시에 한국어가 아예 없는 제목
+    #   ② upgrade = 무료번역만 된 제목(LLM 키가 있을 때 요약 붙이려고 재처리) — 새 제목 다음, LLM 한도가 남을 때만
+    latest = {}
+    for it in all_items:
+        t = it.get("title", "").strip()
+        if t and (it.get("time") or "") > latest.get(t, ""):
+            latest[t] = it.get("time") or ""
+    newest_first = lambda ts: sorted(ts, key=lambda t: latest.get(t, ""), reverse=True)
+    new = newest_first([t for t in titles if not (cache.get(t) or {}).get("ko")])
+    upgrade = newest_first([t for t in titles if (cache.get(t) or {}).get("ko") and not reusable(cache.get(t))])
+    todo = new + upgrade
+    log(f"cache hit {len(titles) - len(todo)}, 새 제목 {len(new)} · 요약 업그레이드 대상 {len(upgrade)}")
 
     if todo:
-        arr = enrich(todo, cfg)
+        arr = enrich(todo, cfg, n_new=len(new))
         for t, r in zip(todo, arr):
             if not r or not r.get("ok", True):
                 continue                     # 실패분은 캐시하지 않음(다음날 재시도)

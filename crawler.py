@@ -272,7 +272,7 @@ def _norm(s):
 # 시세 조회 페이지·종목 프로필 등 뉴스가 아닌 결과 + 기관 보유 변동(13F) 자동 기사
 _JUNK = re.compile(r"(stock price, news, quote|quote price and forecast|stock quote|price, news, quote|"
                    r"stock price, quote|quote, news & history|symbol__|stock price today|share price & news|"
-                   r"historical prices|stock chart|"
+                   r"historical prices|stock chart|latest stock news|news (&|and) headlines|"
                    r"(shares?|stock|stake|position|holdings?) (purchased|sold|acquired|bought|trimmed|raised|lowered|cut|boosted|reduced) by|"
                    r"(acquires|buys|sells|purchases) (new )?(shares|stake|position) (of|in)|"
                    r"has \$[\d.,]+ (million|billion|thousand) (stock )?(position|stake|holdings)|"
