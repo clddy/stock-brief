@@ -173,6 +173,9 @@
   .ovrow .thin { font-size: 11px; color: var(--ink3); }
   .ovminor { flex-basis: 100%; font-size: 12px; color: var(--ink3); padding-left: 2px; }
   .ovminor span { color: var(--ink2); }
+  .ovsec + .ovsec { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .ovex { font-size: 12px; color: var(--ink3); padding: 6px 0 2px; }
+  .ovex a { cursor: pointer; color: var(--ink2); }
   .ovfoot { font-size: 11.5px; color: var(--ink3); padding-top: 8px; border-top: 1px solid var(--line); }
   .ngrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; }
   .nstock { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px 6px; box-shadow: var(--shadow); }
@@ -376,7 +379,7 @@ function seriesOf(x) {
 const chgOf = x => { const v = x["chg" + PERIOD]; return v == null ? null : v; };
 // ---- MFI(14): 80↑ 과매수(빨강) · 20↓ 과매도(파랑)
 const mfiZone = v => v == null ? "" : v >= 80 ? "hot" : v <= 20 ? "cold" : "";
-const mfiWord = v => v == null ? "" : v >= 80 ? "과매수" : v <= 20 ? "과매도" : v <= 25 ? "과매도 근접(알림 기준 25↓)" : "중립";
+const mfiWord = v => v == null ? "" : v >= 80 ? "과매수" : v <= 20 ? "과매도" : v <= 30 ? "과매도권(알림 기준 30↓)" : "중립";
 // ---- 뉴스 시각: "3시간 전/2일 전", 48시간 이내면 새 뉴스
 const newsAge = iso => { const t = Date.parse(iso || ""); return isNaN(t) ? null : (Date.now() - t) / 3600e3; };
 const agoTxt = iso => { const h = newsAge(iso); if (h == null) return ""; if (h < 1) return "방금"; if (h < 24) return Math.floor(h) + "시간 전"; return Math.floor(h / 24) + "일 전"; };
@@ -451,26 +454,32 @@ function renderMovers() {
   }).join("");
 }
 renderMovers();
-// MFI 과매도 · 뚜렷한 악재 없음 (signals.py 결과)
+// MFI 신호 (signals.py 결과): ① 30↓ N거래일+ 지속 ② 오늘 30↑ 회복 — 악재 없음 / 제외(악재)
 function renderOversold() {
-  const ov = (D.signals || {}).oversold, el = $("#oversold");
-  if (!ov) { el.innerHTML = ""; return; }
-  if (ov.error) { el.innerHTML = `<div class="ovbox"><div class="ovh"><b>MFI 과매도 · 악재 없음</b><small>신호 계산 실패</small></div></div>`; return; }
-  const rows = ov.clean.map(r => {
+  const mf = (D.signals || {}).mfi, el = $("#oversold");
+  if (!mf) { el.innerHTML = ""; return; }
+  if (mf.error) { el.innerHTML = `<div class="ovbox"><div class="ovh"><b>MFI 신호</b><small>계산 실패</small></div></div>`; return; }
+  const row = (r, info) => {
     const minor = r.minor.filter((m, i, a) => a.findIndex(z => z[0] === m[0]) === i)
       .map(([k, t]) => `<div class="ovminor">참고 · ${k}: <span>${t}</span></div>`).join("");
     return `<div class="ovrow" data-goto="${r.t}">${r.new ? '<span class="newb">NEW</span>' : ""}<span class="tkr">${r.t}</span>${starHTML(r.t)}<span class="kr">${r.kr}</span>
-      <span class="nums">MFI <span class="mfi cold">${mfiTxt(r.mfi)}</span> · 1개월 <b class="${(r.chg1m ?? 0) >= 0 ? "u" : "d"}" style="color:var(--${(r.chg1m ?? 0) >= 0 ? "up" : "down"})">${chgTxt(r.chg1m)}</b> · ${r.etf ? "ETF(구성종목 기준)" : `뉴스 ${r.news_n}건`}</span>${r.thin ? '<span class="thin">(뉴스 적어 근거 약함)</span>' : ""}${minor}</div>`;
-  }).join("") || `<div class="ovrow" style="cursor:default;color:var(--ink3)">지금은 해당 종목이 없습니다.</div>`;
-  const ex = ov.flagged.length ? `제외(악재): ${ov.flagged.map(r => `<b>${r.t}</b> ${r.severe[0][0]}`).join(" · ")}<br>` : "";
-  el.innerHTML = `<div class="ovbox"><div class="ovh"><b>MFI 과매도 · 뚜렷한 악재 없음</b><small>MFI(14) ≤ ${ov.mfi_max} · 최근 7일 종목 뉴스 제목 기준 · ${ov.asof || ""}</small></div>${rows}
-    <div class="ovfoot">${ex}뉴스 제목 키워드로 거른 1차 필터입니다. 헤드라인을 직접 확인하세요. 목표가 하향·소송 홍보 기사는 제외하지 않고 '참고'로 표시.</div></div>`;
+      <span class="nums">MFI <span class="mfi ${mfiZone(r.mfi)}">${mfiTxt(r.mfi)}</span> · ${info(r)} · 1개월 <b style="color:var(--${(r.chg1m ?? 0) >= 0 ? "up" : "down"})">${chgTxt(r.chg1m)}</b> · ${r.etf ? "ETF(구성종목 기준)" : `뉴스 ${r.news_n}건`}</span>${r.thin ? '<span class="thin">(뉴스 적어 근거 약함)</span>' : ""}${minor}</div>`;
+  };
+  const sec = (title, sub, g, info) => {
+    const rows = g.clean.map(r => row(r, info)).join("") || `<div class="ovrow" style="cursor:default;color:var(--ink3)">해당 종목 없음</div>`;
+    const ex = g.flagged.length ? `<div class="ovex">제외(악재): ${g.flagged.map(r => `<a data-goto="${r.t}"><b>${r.t}</b></a> ${r.severe[0][0]}`).join(" · ")}</div>` : "";
+    return `<div class="ovsec"><div class="ovh"><b>${title}</b><small>${sub}</small></div>${rows}${ex}</div>`;
+  };
+  el.innerHTML = `<div class="ovbox">
+    ${sec(`MFI ${mf.low_max} 이하 ${mf.min_days}거래일+ 지속`, `악재 없음 ${mf.low.clean.length}개 · 기준일 ${mf.asof}`, mf.low, r => `${r.days}일째${r.capped ? "+" : ""}`)}
+    ${sec(`MFI ${mf.low_max} 위로 오늘 회복`, `어제 ${mf.low_max} 이하 → 오늘 초과 · 악재 없음 ${mf.up.clean.length}개`, mf.up, r => `직전 ${r.low_days}일 과매도(최저 ${r.low_min})`)}
+    <div class="ovfoot">최근 7일 종목 뉴스 제목 키워드로 거른 1차 필터입니다. 헤드라인을 직접 확인하세요. 목표가 하향·소송 홍보 기사는 제외하지 않고 '참고'로 표시.</div></div>`;
 }
 renderOversold();
 $("#oversold").addEventListener("click", e => {
   const fav = e.target.closest(".fav");
   if (fav) { e.stopPropagation(); toggleFav(fav.dataset.fav); return; }
-  const r = e.target.closest(".ovrow[data-goto]");
+  const r = e.target.closest("[data-goto]");
   if (r) openDetail(r.dataset.goto);
 });
 function saveFavs() { try { localStorage.setItem("sb_favs", JSON.stringify([...FAVS])); } catch (e) {} }

@@ -92,6 +92,30 @@ def _probe(key, model, timeout=25):
         return False, type(e).__name__
 
 
+GSTATE = BASE / "gemini_state.json"     # gitignore
+
+
+def _gstate():
+    try:
+        return json.loads(GSTATE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _gstate_save(st):
+    try:
+        GSTATE.write_text(json.dumps(st, ensure_ascii=False, indent=1), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def mark_exhausted(model, wait):
+    """일일 한도 소진 모델 → 초기화 예정 시각까지 후보에서 뺀다."""
+    st = _gstate()
+    st.setdefault("blocked", {})[model] = time.time() + wait
+    _gstate_save(st)
+
+
 def resolve_gemini_models(key, preferred, want=3):
     """시험 호출에 응답하는 Flash 모델을 최대 want 개, 우선순위대로 반환(설정 모델 → 최신 정식 Flash).
     2026-11-11 실측: 종료 모델도 GET models/<이름> 은 200, 목록에 있어도 '신규 사용자 제공 중단' 404,
@@ -114,6 +138,19 @@ def resolve_gemini_models(key, preferred, want=3):
             cands.append((float(v.group(1)), -len(name), name))
     order = ([preferred] if preferred in usable else []) + \
             [n for _, _, n in sorted(cands, reverse=True) if n != preferred]
+    st, now = _gstate(), time.time()
+    blocked = {m: t for m, t in (st.get("blocked") or {}).items() if t > now}
+    order = [m for m in order if m not in blocked]
+    if blocked:
+        log(f"gemini 일일 한도 소진으로 제외: {', '.join(f'{m}(~{(t - now) / 3600:.0f}시간 후 초기화)' for m, t in blocked.items())}")
+    # 시험 호출도 하루 한도(모델별 20회)를 깎으므로 같은 날은 결과를 재사용
+    today = datetime.now().strftime("%Y-%m-%d")
+    pc = st.get("probe") or {}
+    if pc.get("date") == today:
+        reuse = [m for m in pc.get("ok", []) if m in order]
+        if reuse:
+            log(f"gemini 오늘 시험 결과 재사용 → 사용 순서 {reuse[:want]}")
+            return reuse[:want]
     ok_models, tried = [], []
     for name in order[:7]:
         ok, code = _probe(key, name)
@@ -123,6 +160,9 @@ def resolve_gemini_models(key, preferred, want=3):
             if len(ok_models) >= want:
                 break
     log(f"gemini 모델 시험: {', '.join(tried)} → 사용 순서 {ok_models or '없음'}")
+    st["blocked"] = blocked
+    st["probe"] = {"date": today, "ok": ok_models}
+    _gstate_save(st)
     return ok_models
 
 
@@ -165,8 +205,17 @@ def gemini_chunk(titles, key, model):
     except requests.exceptions.Timeout:
         raise Unavailable("timeout")
     if r.status_code == 429:
-        ra = r.headers.get("Retry-After")
-        raise RateLimited(float(ra) if ra and ra.replace(".", "", 1).isdigit() else 40.0)
+        wait, daily = 40.0, False
+        try:
+            for d in r.json().get("error", {}).get("details", []):
+                if d.get("retryDelay"):
+                    wait = float(str(d["retryDelay"]).rstrip("s") or 40)
+                for v in d.get("violations", []) or []:
+                    if "PerDay" in (v.get("quotaId") or ""):
+                        daily = True
+        except Exception:
+            pass
+        raise RateLimited(wait, daily=daily or wait > 300)
     if r.status_code in (500, 502, 503, 504):
         raise Unavailable(f"HTTP {r.status_code}")
     if r.status_code >= 400:
@@ -202,9 +251,9 @@ def llm_partial(titles, fns, engine, pause=LLM_PAUSE):
         part = titles[s:s + CHUNK]
         if n:
             time.sleep(pause)
-        res, waited, tries, rested = None, False, 0, False
-        while fns and tries < 2 * len(fns) + 1:
-            if tries == len(fns) and not rested:
+        res, waited, tries, rested, unav = None, False, 0, False, 0
+        while fns and tries < 2 * len(fns) + 2:
+            if unav >= len(fns) and not rested:
                 rested = True                        # 모든 모델이 과부하 → 수요 폭주는 보통 짧아서 30초 쉬고 한 바퀴 더
                 log(f"{engine} 모든 모델 과부하 — 30초 대기 후 한 바퀴 더")
                 time.sleep(30)
@@ -214,13 +263,18 @@ def llm_partial(titles, fns, engine, pause=LLM_PAUSE):
                 res = fn(part)
                 break
             except RateLimited as e:
-                if waited:
-                    log(f"{engine} 429 반복 — 중단 (성공 {len(got)}건, 나머지는 다음 엔진/다음 실행)")
-                    return got
+                if e.daily or waited:
+                    log(f"{engine} {name} 한도 소진({'일일' if e.daily else '반복 429'}) — 이 모델 빼고 다음 모델로")
+                    if e.daily and engine == "gemini":
+                        mark_exhausted(name, e.wait)
+                    fns.pop(0)
+                    waited = False
+                    continue
                 waited = True
-                log(f"{engine} 429 — {e.wait:.0f}초 대기 후 재시도")
+                log(f"{engine} {name} 429 — {e.wait:.0f}초 대기 후 재시도")
                 time.sleep(e.wait)
             except Unavailable as e:
+                unav += 1
                 log(f"{engine} {name} 과부하({e}) — 다음 모델로")
                 fns.append(fns.pop(0))          # 뒤로 미룸
                 time.sleep(3)
@@ -244,9 +298,10 @@ GT_PAUSE = 1.0       # 요청 사이 간격(초) — 무료 엔드포인트 차�
 
 
 class RateLimited(Exception):
-    def __init__(self, wait=30.0):
-        super().__init__(f"rate limited ({wait:.0f}s)")
+    def __init__(self, wait=30.0, daily=False):
+        super().__init__(f"rate limited ({wait:.0f}s{', daily quota' if daily else ''})")
         self.wait = wait
+        self.daily = daily
 
 
 def _gt(text):

@@ -46,6 +46,7 @@ HORIZONS = {"1m": 30, "3m": 91, "6m": 182, "1y": 365}   # 기간 키 → 달력�
 
 
 MFI_N = 14
+MFI_RECENT = 15     # 기준선 연속일수·회복 판정용으로 소수 1자리 정확값을 남길 최근 일수
 
 
 def mfi14(frame, idx):
@@ -75,10 +76,11 @@ def mfi14(frame, idx):
             out.append(100 - 100 / (1 + p_ / n_))
     if not out or out[-1] is None:
         return None
+    recent = [None if v is None else round(v, 1) for v in out[-MFI_RECENT:]]   # 기준선(30) 판정용 정확값
     last = round(out[-1], 1)
     out = [None if v is None else int(round(v)) for v in out]
     out[-1] = last
-    return out
+    return out, recent
 
 
 def fetch_quotes(tickers):
@@ -114,10 +116,12 @@ def fetch_quotes(tickers):
                 rec["i" + key] = i0
                 rec["chg" + key] = (round((last - base) / base * 100, 2)
                                     if base and span_days >= days * 0.9 else None)
-            mfi = mfi14(df[t], idx)
-            if mfi is not None:
+            m = mfi14(df[t], idx)
+            if m is not None:
+                mfi, recent = m
                 rec["mfi"] = mfi[-1]
                 rec["mfis"] = mfi
+                rec["mfi_r"] = recent
             d0 = idx[0].date()
             # 상세 차트(일목균형표)용 고가·저가 — data.js 가 아니라 chart/<티커>.js 로 따로 씀
             try:

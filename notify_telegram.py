@@ -64,31 +64,37 @@ def build_message(data):
             lines.append(f"{mark} <b>{esc(x['t'])}</b> {esc(x['kr'])} {sign}{x['chg']:.1f}%")
         lines.append("")
 
-    # MFI 과매도인데 뚜렷한 악재 뉴스 없음 (signals.py 결과)
-    ov = (data.get("signals") or {}).get("oversold")
-    if ov:
-        if ov.get("error"):
-            lines.append("〈MFI 과매도 · 악재 없음〉 신호 계산 실패 (crawler.log 확인)")
+    # MFI 신호 (signals.py 결과): ① 30↓ 3일+ 지속 ② 오늘 30↑ 회복 — 각각 악재 없음 / 제외(악재)
+    mf = (data.get("signals") or {}).get("mfi")
+    if mf:
+        if mf.get("error"):
+            lines.append("〈MFI 신호〉 계산 실패 (crawler.log 확인)")
             lines.append("")
         else:
-            lines.append(f"〈MFI 과매도 · 뚜렷한 악재 없음〉 MFI≤{ov['mfi_max']:g}")
-            if ov["clean"]:
-                for r in ov["clean"]:
-                    new = "🆕 " if r.get("new") else ""
-                    thin = " · 뉴스 적음" if r.get("thin") else (" · ETF" if r.get("etf") else "")
-                    lines.append(f"{new}<b>{esc(r['t'])}</b> {esc(r['kr'])} · MFI {r['mfi']:.1f} · "
-                                 f"1개월 {r['chg1m']:+.1f}%{thin}")
-                    seen_k = set()
-                    for k, title, _ in r["minor"]:
-                        if k in seen_k:
-                            continue
-                        seen_k.add(k)
-                        lines.append(f"   참고({esc(k)}): {esc(title[:70])}")
-            else:
-                lines.append("해당 종목 없음")
-            if ov["flagged"]:
-                ex = " · ".join(f"{r['t']}({r['severe'][0][0]})" for r in ov["flagged"])
-                lines.append(f"<i>제외(악재): {esc(ex)}</i>")
+            def block(head, grp, info):
+                lines.append(head)
+                if grp["clean"]:
+                    for r in grp["clean"]:
+                        new = "🆕 " if r.get("new") else ""
+                        tail = " · ETF" if r.get("etf") else (" · 뉴스 적음" if r.get("thin") else "")
+                        lines.append(f"{new}<b>{esc(r['t'])}</b> {esc(r['kr'])} · MFI {r['mfi']:.1f} · "
+                                     f"{info(r)} · 1개월 {r['chg1m']:+.1f}%{tail}")
+                        seen_k = set()
+                        for k, ttl, _ in r["minor"]:
+                            if k in seen_k:
+                                continue
+                            seen_k.add(k)
+                            lines.append(f"   참고({esc(k)}): {esc(ttl[:70])}")
+                else:
+                    lines.append("해당 종목 없음")
+                if grp["flagged"]:
+                    ex = " · ".join(f"{r['t']}({r['severe'][0][0]})" for r in grp["flagged"])
+                    lines.append(f"<i>제외(악재): {esc(ex)}</i>")
+                lines.append("")
+            block(f"〈MFI {mf['low_max']}↓ {mf['min_days']}일 이상 지속 · 악재 없음〉", mf["low"],
+                  lambda r: f"{r['days']}일째{'+' if r.get('capped') else ''}")
+            block(f"〈MFI {mf['low_max']}↑ 오늘 회복 · 악재 없음〉", mf["up"],
+                  lambda r: f"직전 {r['low_days']}일 과매도(최저 {r['low_min']:g})")
             lines.append("<i>※ 뉴스 제목 키워드 기준 1차 필터 — 헤드라인 직접 확인 권장</i>")
             lines.append("")
 

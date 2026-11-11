@@ -13,3 +13,4 @@ __pycache__/
 *.pyc
 enrich_cache.json
 signals_state.json
+gemini_state.json
