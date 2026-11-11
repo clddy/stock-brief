@@ -764,7 +764,37 @@ function waterfallSVG(an) {
 }
 // ---- 상세 모달: 가격 차트 + 일목균형표(ON/OFF, 저장). 고가·저가는 chart/<티커>.js 를 열 때만 로드
 const ICHI_COL = { tenkan: "#ff9500", kijun: "#5e5ce6", chikou: "#34c759" };
+const BB_COL = "#af52de";
 let ICHI_ON = (() => { try { return localStorage.getItem("sb_ichi") === "1"; } catch (e) { return false; } })();
+let BB_ON = (() => { try { return localStorage.getItem("sb_bb") === "1"; } catch (e) { return false; } })();
+// 볼린저밴드(20일, ±2σ, 모표준편차) — 종가만 필요. 인덱스 = spark 인덱스, 앞 19개는 null
+function bollinger(c, p = 20, k = 2) {
+  const n = c.length, mid = new Array(n).fill(null), up = new Array(n).fill(null), lo = new Array(n).fill(null);
+  for (let i = p - 1; i < n; i++) {
+    let s1 = 0, s2 = 0;
+    for (let j = i - p + 1; j <= i; j++) { s1 += c[j]; s2 += c[j] * c[j]; }
+    const m = s1 / p, sd = Math.sqrt(Math.max(0, s2 / p - m * m));
+    mid[i] = m; up[i] = m + k * sd; lo[i] = m - k * sd;
+  }
+  return { mid, up, lo };
+}
+// 상태: 밴드 내 위치(%B), 중심선 위/아래, 밴드폭(최근 6개월 대비 수축=스퀴즈/확장)
+function bbStatus(x, bb) {
+  const c = x.spark, n = c.length, last = c[n - 1], u = bb.up[n - 1], l = bb.lo[n - 1], m = bb.mid[n - 1], out = [];
+  if (u == null) return out;
+  const pb = (last - l) / ((u - l) || 1);
+  out.push(last > u ? ["상단 밴드 돌파", "u"] : last < l ? ["하단 밴드 이탈", "d"]
+    : [`밴드 내 ${pb >= .5 ? "상단" : "하단"} 쪽 (%B ${pb.toFixed(2)})`, pb >= .8 ? "u" : pb <= .2 ? "d" : ""]);
+  out.push(last >= m ? ["20일선 위", "u"] : ["20일선 아래", "d"]);
+  const bw = [];
+  for (let i = Math.max(19, n - 126); i < n; i++) bw.push((bb.up[i] - bb.lo[i]) / bb.mid[i]);
+  if (bw.length >= 40) {
+    const cur = bw[bw.length - 1], rank = bw.filter(v => v <= cur).length / bw.length;
+    if (rank <= .2) out.push(["밴드 수축(스퀴즈)", ""]);
+    else if (rank >= .8) out.push(["밴드 확장", ""]);
+  }
+  return out;
+}
 const _ohlcP = {};
 function loadOHLC(tk) {
   if (window.OHLC && window.OHLC[tk]) return Promise.resolve(window.OHLC[tk]);
@@ -799,13 +829,14 @@ function ichimoku(c, h, l) {
   }
   return { tenkan, kijun, A, B, chikou };
 }
-function priceChartSVG(x, ich) {
+function priceChartSVG(x, ich, bb) {
   const c = x.spark, n = c.length, i0 = seriesOf(x).i0;
   const end = ich ? n - 1 + 26 : n - 1, span = Math.max(1, end - i0);
   const w = 600, hh = 210, p = 6;
   const vals = [];
   for (let i = i0; i < n; i++) vals.push(c[i]);
   if (ich) for (let i = i0; i <= end; i++) [ich.tenkan[i], ich.kijun[i], ich.A[i], ich.B[i], ich.chikou[i]].forEach(v => { if (v != null) vals.push(v); });
+  if (bb) for (let i = i0; i < n; i++) [bb.up[i], bb.lo[i]].forEach(v => { if (v != null) vals.push(v); });
   const mn = Math.min(...vals), mx = Math.max(...vals), rng = (mx - mn) || 1;
   const X = i => (p + (i - i0) * (w - 2 * p) / span).toFixed(1);
   const Y = v => (hh - p - (v - mn) * (hh - 2 * p) / rng).toFixed(1);
@@ -833,7 +864,15 @@ function priceChartSVG(x, ich) {
     g += line(path(ich.kijun, i0, n - 1), ICHI_COL.kijun, 1.6, .95);
     g += line(path(ich.tenkan, i0, n - 1), ICHI_COL.tenkan, 1.6, .95);
   }
-  const col = ich ? "var(--ink)" : ((chgOf(x) ?? 0) >= 0 ? "var(--up)" : "var(--down)");
+  if (bb) {
+    let top = "", bot = "";
+    for (let i = i0; i < n; i++) if (bb.up[i] != null) { top += `${top ? "L" : "M"}${X(i)},${Y(bb.up[i])}`; bot = `L${X(i)},${Y(bb.lo[i])}` + bot; }
+    if (top) g += `<path d="${top}${bot}Z" fill="${BB_COL}" opacity=".09" stroke="none"/>`;
+    g += line(path(bb.up, i0, n - 1), BB_COL, 1.2, .75) + line(path(bb.lo, i0, n - 1), BB_COL, 1.2, .75);
+    const md = path(bb.mid, i0, n - 1);
+    if (md) g += `<path d="${md}" fill="none" stroke="${BB_COL}" stroke-width="1.2" stroke-dasharray="5 4" opacity=".8" vector-effect="non-scaling-stroke"/>`;
+  }
+  const col = (ich || bb) ? "var(--ink)" : ((chgOf(x) ?? 0) >= 0 ? "var(--up)" : "var(--down)");
   g += line(path(c, i0, n - 1), col, 2, 1);
   return { svg: `<svg class="pxchart" viewBox="0 0 ${w} ${hh}" preserveAspectRatio="none" data-t="${x.t}" data-i0="${i0}" data-end="${end}">${g}</svg>`, mn, mx };
 }
@@ -852,8 +891,9 @@ function ichiStatus(x, ich) {
   if (fa != null && fb != null) out.push(fa >= fb ? ["26일 뒤 양운", "u"] : ["26일 뒤 음운", "d"]);
   return out;
 }
+const pxSubText = () => `${perLabel()} 종가${ICHI_ON ? " · 일목균형표" : ""}${BB_ON ? " · 볼린저밴드(20,2)" : ""}`;
 function priceShellHTML(x) {
-  return `<h4>가격 차트 <small id="pxsub">${perLabel()} 종가${ICHI_ON ? " · 일목균형표" : ""}</small><button id="ichiBtn" class="ichibtn ${ICHI_ON ? "on" : ""}" title="일목균형표 켜기/끄기">일목균형표 ${ICHI_ON ? "ON" : "OFF"}</button></h4><div id="pxbox"><div class="fin-missing">차트 불러오는 중…</div></div>`;
+  return `<h4>가격 차트 <small id="pxsub">${pxSubText()}</small><button id="bbBtn" class="ichibtn ${BB_ON ? "on" : ""}" title="볼린저밴드 켜기/끄기">볼린저 ${BB_ON ? "ON" : "OFF"}</button><button id="ichiBtn" class="ichibtn ${ICHI_ON ? "on" : ""}" style="margin-right:6px" title="일목균형표 켜기/끄기">일목균형표 ${ICHI_ON ? "ON" : "OFF"}</button></h4><div id="pxbox"><div class="fin-missing">차트 불러오는 중…</div></div>`;
 }
 function drawPriceChart(tk) {
   const x = byT[tk]; if (!x || !document.getElementById("pxbox")) return;
@@ -861,7 +901,8 @@ function drawPriceChart(tk) {
     const box = document.getElementById("pxbox");
     if (!box || modal.dataset.tk !== tk) return;           // 그새 다른 종목을 열었으면 무시
     const ich = (ICHI_ON && o && o.n === x.spark.length) ? ichimoku(x.spark, o.h, o.l) : null;
-    const r = priceChartSVG(x, ich);
+    const bb = BB_ON ? bollinger(x.spark) : null;
+    const r = priceChartSVG(x, ich, bb);
     let html = r.svg + `<div class="pxcap"><span>고 $${fmt(r.mx)}</span><span>저 $${fmt(r.mn)}</span></div>`;
     if (ich) {
       html += `<div class="ichileg"><span><i style="background:${ICHI_COL.tenkan}"></i>전환선(9)</span><span><i style="background:${ICHI_COL.kijun}"></i>기준선(26)</span><span><i style="background:${ICHI_COL.chikou}"></i>후행스팬</span><span><i style="background:var(--up);opacity:.4"></i>양운</span><span><i style="background:var(--down);opacity:.4"></i>음운</span><span style="color:var(--ink3)">점선 오른쪽 = 26일 앞 구름</span></div>`;
@@ -869,19 +910,29 @@ function drawPriceChart(tk) {
     } else if (ICHI_ON) {
       html += `<div class="fin-missing">고가·저가 데이터를 불러오지 못해 일목균형표를 그릴 수 없습니다.</div>`;
     }
+    if (bb) {
+      html += `<div class="ichileg"><span><i style="background:${BB_COL}"></i>볼린저 상·하단(±2σ)</span><span><i style="background:${BB_COL};opacity:.5"></i>중심선(20일 이평, 점선)</span></div>`;
+      html += `<div class="ichichips">${bbStatus(x, bb).map(([t, c]) => `<span class="ichichip ${c}">${t}</span>`).join("")}</div>`;
+    }
     box.innerHTML = html;
   };
   if (!ICHI_ON) { paint(null); return; }                  // OFF면 종가만(추가 로드 없음)
   loadOHLC(tk).then(paint).catch(() => paint(null));
 }
 modal.addEventListener("click", e => {
-  if (!e.target.closest("#ichiBtn")) return;
-  ICHI_ON = !ICHI_ON;
-  try { localStorage.setItem("sb_ichi", ICHI_ON ? "1" : "0"); } catch (err) {}
-  const b = document.getElementById("ichiBtn");
-  b.classList.toggle("on", ICHI_ON); b.textContent = `일목균형표 ${ICHI_ON ? "ON" : "OFF"}`;
-  const sub = document.getElementById("pxsub"), x = byT[modal.dataset.tk];
-  if (sub && x) sub.textContent = `${perLabel()} 종가${ICHI_ON ? " · 일목균형표" : ""}`;
+  const ib = e.target.closest("#ichiBtn"), bbb = e.target.closest("#bbBtn");
+  if (!ib && !bbb) return;
+  if (ib) {
+    ICHI_ON = !ICHI_ON;
+    try { localStorage.setItem("sb_ichi", ICHI_ON ? "1" : "0"); } catch (err) {}
+    ib.classList.toggle("on", ICHI_ON); ib.textContent = `일목균형표 ${ICHI_ON ? "ON" : "OFF"}`;
+  } else {
+    BB_ON = !BB_ON;
+    try { localStorage.setItem("sb_bb", BB_ON ? "1" : "0"); } catch (err) {}
+    bbb.classList.toggle("on", BB_ON); bbb.textContent = `볼린저 ${BB_ON ? "ON" : "OFF"}`;
+  }
+  const sub = document.getElementById("pxsub");
+  if (sub) sub.textContent = pxSubText();
   drawPriceChart(modal.dataset.tk);
 });
 
@@ -1015,6 +1066,10 @@ document.addEventListener("mousemove", e => {
         const ich = px._ich || (px._ich = ichimoku(x.spark, o.h, o.l));
         if (ich.tenkan[i] != null) txt += `<br><span style="color:${ICHI_COL.tenkan}">전환 $${fmt(ich.tenkan[i])}</span>`;
         if (ich.kijun[i] != null) txt += ` <span style="color:${ICHI_COL.kijun}">기준 $${fmt(ich.kijun[i])}</span>`;
+      }
+      if (BB_ON) {
+        const bb = px._bb || (px._bb = bollinger(x.spark));
+        if (bb.up[i] != null) txt += `<br><span style="color:${BB_COL}">볼린저 $${fmt(bb.lo[i])} ~ $${fmt(bb.up[i])}</span>`;
       }
     } else {
       txt = `<b>+${i - (n - 1)}거래일 (선행 구름)</b>`;
