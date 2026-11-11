@@ -64,6 +64,34 @@ def build_message(data):
             lines.append(f"{mark} <b>{esc(x['t'])}</b> {esc(x['kr'])} {sign}{x['chg']:.1f}%")
         lines.append("")
 
+    # MFI 과매도인데 뚜렷한 악재 뉴스 없음 (signals.py 결과)
+    ov = (data.get("signals") or {}).get("oversold")
+    if ov:
+        if ov.get("error"):
+            lines.append("〈MFI 과매도 · 악재 없음〉 신호 계산 실패 (crawler.log 확인)")
+            lines.append("")
+        else:
+            lines.append(f"〈MFI 과매도 · 뚜렷한 악재 없음〉 MFI≤{ov['mfi_max']:g}")
+            if ov["clean"]:
+                for r in ov["clean"]:
+                    new = "🆕 " if r.get("new") else ""
+                    thin = " · 뉴스 적음" if r.get("thin") else ""
+                    lines.append(f"{new}<b>{esc(r['t'])}</b> {esc(r['kr'])} · MFI {r['mfi']:.1f} · "
+                                 f"1개월 {r['chg1m']:+.1f}%{thin}")
+                    seen_k = set()
+                    for k, title, _ in r["minor"]:
+                        if k in seen_k:
+                            continue
+                        seen_k.add(k)
+                        lines.append(f"   참고({esc(k)}): {esc(title[:70])}")
+            else:
+                lines.append("해당 종목 없음")
+            if ov["flagged"]:
+                ex = " · ".join(f"{r['t']}({r['severe'][0][0]})" for r in ov["flagged"])
+                lines.append(f"<i>제외(악재): {esc(ex)}</i>")
+            lines.append("<i>※ 뉴스 제목 키워드 기준 1차 필터 — 헤드라인 직접 확인 권장</i>")
+            lines.append("")
+
     # 주요 뉴스 — 태그(테마/섹터)별로 골고루 라운드로빈, 한국어 우선
     buckets = []  # [(tag, [items...]), ...]
     for th in data.get("theme_news", []):

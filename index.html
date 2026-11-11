@@ -157,6 +157,20 @@
   .ichichips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .ichichip { font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 99px; background: var(--bg); color: var(--ink2); }
   .ichichip.u { background: var(--up-bg); color: var(--up); } .ichichip.d { background: var(--down-bg); color: var(--down); }
+  .ovbox { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 14px 16px 10px; margin: -10px 0 26px; }
+  .ovbox .ovh { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .ovbox .ovh b { font-size: 15px; }
+  .ovbox .ovh small { font-size: 11.5px; color: var(--ink3); }
+  .ovrow { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--line); cursor: pointer; }
+  .ovrow:first-of-type { border-top: none; }
+  .ovrow .tkr { font-weight: 700; }
+  .ovrow .kr { color: var(--ink2); font-size: 13px; }
+  .ovrow .nums { font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--ink2); }
+  .ovrow .newb { font-size: 10.5px; font-weight: 700; color: #fff; background: var(--accent); border-radius: 6px; padding: 1px 6px; }
+  .ovrow .thin { font-size: 11px; color: var(--ink3); }
+  .ovminor { flex-basis: 100%; font-size: 12px; color: var(--ink3); padding-left: 2px; }
+  .ovminor span { color: var(--ink2); }
+  .ovfoot { font-size: 11.5px; color: var(--ink3); padding-top: 8px; border-top: 1px solid var(--line); }
   .ngrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; }
   .nstock { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px 6px; box-shadow: var(--shadow); }
   .nstock .nh { display: flex; align-items: baseline; gap: 8px; cursor: pointer; padding-bottom: 6px; }
@@ -316,6 +330,7 @@
 
 <main>
   <div id="movers" class="movers"></div>
+  <div id="oversold"></div>
   <h2>관심 테마 뉴스 <small>최근 72시간 · Google News</small></h2>
   <div class="themes" id="themes"></div>
   <div id="favEmpty" class="hidden" style="text-align:center;color:var(--ink3);padding:48px 20px;font-size:14px">즐겨찾기한 종목이 없습니다.<br>카드나 상세화면의 별(<span style="color:#FFCC00">★</span>)을 눌러 추가하세요.</div>
@@ -424,6 +439,28 @@ function renderMovers() {
   }).join("");
 }
 renderMovers();
+// MFI 과매도 · 뚜렷한 악재 없음 (signals.py 결과)
+function renderOversold() {
+  const ov = (D.signals || {}).oversold, el = $("#oversold");
+  if (!ov) { el.innerHTML = ""; return; }
+  if (ov.error) { el.innerHTML = `<div class="ovbox"><div class="ovh"><b>MFI 과매도 · 악재 없음</b><small>신호 계산 실패</small></div></div>`; return; }
+  const rows = ov.clean.map(r => {
+    const minor = r.minor.filter((m, i, a) => a.findIndex(z => z[0] === m[0]) === i)
+      .map(([k, t]) => `<div class="ovminor">참고 · ${k}: <span>${t}</span></div>`).join("");
+    return `<div class="ovrow" data-goto="${r.t}">${r.new ? '<span class="newb">NEW</span>' : ""}<span class="tkr">${r.t}</span>${starHTML(r.t)}<span class="kr">${r.kr}</span>
+      <span class="nums">MFI <span class="mfi cold">${mfiTxt(r.mfi)}</span> · 1개월 <b class="${(r.chg1m ?? 0) >= 0 ? "u" : "d"}" style="color:var(--${(r.chg1m ?? 0) >= 0 ? "up" : "down"})">${chgTxt(r.chg1m)}</b> · 뉴스 ${r.news_n}건</span>${r.thin ? '<span class="thin">(뉴스 적어 근거 약함)</span>' : ""}${minor}</div>`;
+  }).join("") || `<div class="ovrow" style="cursor:default;color:var(--ink3)">지금은 해당 종목이 없습니다.</div>`;
+  const ex = ov.flagged.length ? `제외(악재): ${ov.flagged.map(r => `<b>${r.t}</b> ${r.severe[0][0]}`).join(" · ")}<br>` : "";
+  el.innerHTML = `<div class="ovbox"><div class="ovh"><b>MFI 과매도 · 뚜렷한 악재 없음</b><small>MFI(14) ≤ ${ov.mfi_max} · 최근 7일 종목 뉴스 제목 기준 · ${ov.asof || ""}</small></div>${rows}
+    <div class="ovfoot">${ex}뉴스 제목 키워드로 거른 1차 필터입니다. 헤드라인을 직접 확인하세요. 목표가 하향·소송 홍보 기사는 제외하지 않고 '참고'로 표시.</div></div>`;
+}
+renderOversold();
+$("#oversold").addEventListener("click", e => {
+  const fav = e.target.closest(".fav");
+  if (fav) { e.stopPropagation(); toggleFav(fav.dataset.fav); return; }
+  const r = e.target.closest(".ovrow[data-goto]");
+  if (r) openDetail(r.dataset.goto);
+});
 function saveFavs() { try { localStorage.setItem("sb_favs", JSON.stringify([...FAVS])); } catch (e) {} }
 function starHTML(t) { return `<span class="fav ${FAVS.has(t) ? "on" : ""}" data-fav="${t}" title="즐겨찾기">${FAVS.has(t) ? "★" : "☆"}</span>`; }
 function syncStars(t) {

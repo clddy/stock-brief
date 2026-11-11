@@ -34,7 +34,7 @@ if (-not $PY) {
 }
 
 Note "시작 ($PY)"
-foreach ($step in 'crawler.py', 'enrich.py', 'financials.py', 'notify_telegram.py', 'publish.py') {
+foreach ($step in 'crawler.py', 'enrich.py', 'signals.py', 'financials.py', 'notify_telegram.py', 'publish.py') {
     & $PY $step
     if ($LASTEXITCODE -ne 0) {
         Note "FAIL $step 종료코드 $LASTEXITCODE — 이후 단계 중단"

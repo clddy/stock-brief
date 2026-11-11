@@ -12,3 +12,4 @@ fin_cache/
 __pycache__/
 *.pyc
 enrich_cache.json
+signals_state.json
