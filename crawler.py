@@ -271,7 +271,9 @@ _JUNK = re.compile(r"(stock price, news, quote|quote price and forecast|stock qu
                    r"historical prices|stock chart|"
                    r"(shares?|stock|stake|position|holdings?) (purchased|sold|acquired|bought|trimmed|raised|lowered|cut|boosted|reduced) by|"
                    r"(acquires|buys|sells|purchases) (new )?(shares|stake|position) (of|in)|"
-                   r"has \$[\d.,]+ (million|billion|thousand) (stock )?(position|stake|holdings))", re.I)
+                   r"has \$[\d.,]+ (million|billion|thousand) (stock )?(position|stake|holdings)|"
+                   r"shares of .{0,60}\b(acquired|purchased|sold|bought|trimmed|boosted|raised|lowered|reduced) by|"
+                   r"(position|stake|holdings) in .{0,60}\b(raised|lowered|trimmed|boosted|increased|decreased|cut) by)", re.I)
 
 
 def ticker_news_one(t, name):
