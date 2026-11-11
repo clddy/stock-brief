@@ -119,6 +119,13 @@ def fetch_quotes(tickers):
                 rec["mfi"] = mfi[-1]
                 rec["mfis"] = mfi
             d0 = idx[0].date()
+            # 상세 차트(일목균형표)용 고가·저가 — data.js 가 아니라 chart/<티커>.js 로 따로 씀
+            try:
+                hl = df[t].loc[idx, ["High", "Low"]]
+                rec["_h"] = [round(float(v), 2) if v == v else None for v in hl["High"].tolist()]
+                rec["_l"] = [round(float(v), 2) if v == v else None for v in hl["Low"].tolist()]
+            except Exception:
+                pass
             rec["spark"] = [round(float(c), 2) for c in closes.tolist()]
             rec["d0"] = str(d0)
             rec["dd"] = [(d.date() - d0).days for d in idx]
@@ -267,6 +274,28 @@ def ticker_news_one(t, name):
     return t, picked[:NEWS_PER_ITEM]
 
 
+CHART_DIR = BASE / "chart"
+
+
+def write_chart_files(quotes):
+    """종목별 고가·저가를 chart/<티커>.js 로 저장(상세 화면 열 때만 로드 → data.js 비대화 방지).
+    spark 와 같은 인덱스. file:// 에서도 되도록 JSON 이 아니라 스크립트로 쓴다."""
+    CHART_DIR.mkdir(exist_ok=True)
+    keep = set()
+    for t, q in quotes.items():
+        h, l = q.pop("_h", None), q.pop("_l", None)
+        if not h or not l or len(h) != len(q["spark"]):
+            continue
+        fn = f"{t}.js"
+        keep.add(fn)
+        body = json.dumps({"asof": q["asof"], "n": len(h), "h": h, "l": l}, separators=(",", ":"))
+        (CHART_DIR / fn).write_text(f"(window.OHLC=window.OHLC||{{}})[{json.dumps(t)}]={body};", encoding="utf-8")
+    for f in CHART_DIR.glob("*.js"):
+        if f.name not in keep:
+            f.unlink()
+    log(f"chart files: {len(keep)}")
+
+
 def main():
     log("=== crawl start ===")
     cfg = json.loads((BASE / "tickers.json").read_text(encoding="utf-8"))
@@ -325,6 +354,8 @@ def main():
         except Exception as e:
             log(f"  theme news fail {th['name']}: {e}")
     log(f"theme news: {len(theme_news)} themes")
+
+    write_chart_files(quotes)
 
     data = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
