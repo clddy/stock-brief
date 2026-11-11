@@ -72,11 +72,31 @@
   },
   {
    "name": "ETF",
-   "news_query": "AI technology ETF",
+   "news_query": "ETF fund flows stock market",
    "tickers": [
     {
      "t": "AIQ",
      "kr": "글로벌X AI&테크 ETF"
+    },
+    {
+     "t": "SPY",
+     "kr": "SPDR S&P500"
+    },
+    {
+     "t": "QQQ",
+     "kr": "인베스코 QQQ(나스닥100)"
+    },
+    {
+     "t": "VOO",
+     "kr": "뱅가드 S&P500"
+    },
+    {
+     "t": "IWM",
+     "kr": "아이셰어즈 러셀2000"
+    },
+    {
+     "t": "SCHD",
+     "kr": "슈왑 미국배당"
     }
    ]
   },
