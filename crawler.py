@@ -160,6 +160,32 @@ def fetch_mcaps(tickers):
     return out
 
 
+def etf_meta(quotes):
+    """시총이 없는 종목 중 ETF 는 운용자산(AUM)을 크기(mcap)로 쓰고, 보수율·상위 보유종목을 붙인다."""
+    for t, q in quotes.items():
+        if q.get("mcap"):
+            continue
+        try:
+            tk = yf.Ticker(t)
+            info = tk.info
+            if info.get("quoteType") != "ETF":
+                continue
+            aum = info.get("totalAssets")
+            top = []
+            try:
+                th = tk.funds_data.top_holdings
+                top = [[str(sym), str(row["Name"]), round(float(row["Holding Percent"]) * 100, 2)]
+                       for sym, row in th.iterrows()]
+            except Exception:
+                pass
+            q["mcap"] = round(float(aum)) if aum else None
+            q["etf"] = {"aum": q["mcap"], "er": info.get("netExpenseRatio"),
+                        "name": info.get("longName") or info.get("shortName") or t, "top": top}
+            log(f"  etf {t}: aum {q['mcap']}, top {len(top)}")
+        except Exception as e:
+            log(f"  etf meta fail {t}: {e}")
+
+
 def _parse_rss(xml_text, limit, max_age_h):
     """Google News RSS → [{title, url, source, time}]"""
     items = []
@@ -319,6 +345,7 @@ def main():
         if t in quotes:
             quotes[t]["mcap"] = mc
     log(f"mcaps ok: {sum(1 for v in mcaps.values() if v)}/{len(mcaps)}")
+    etf_meta(quotes)
 
     # 종목별 뉴스 — 전 종목, 영문 회사명으로 최근 7일
     names = load_names(list(quotes.keys()))

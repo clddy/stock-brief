@@ -89,9 +89,17 @@ def oversold_screen(data, mfi_max=MFI_MAX):
                 sev += [[k, shown, n.get("time", "")] for k in s]
                 mnr += [[k, shown, n.get("time", "")] for k in mi]
             news_n = len(tn.get(x["t"], []))
+            etf = bool(x.get("etf"))
+            if etf:
+                # ETF 는 개별 악재 개념이 없다 → 상위 보유종목(워치리스트에 있는 것)의 중대 악재 뉴스를 '참고'로만 붙임
+                for sym, _nm, pct in (x["etf"].get("top") or []):
+                    for n in tn.get(sym, []):
+                        s, _ = classify(n.get("title", ""))
+                        for k in s:
+                            mnr.append([f"보유종목 {sym}({pct:g}%) {k}", n.get("ko") or n.get("title", ""), n.get("time", "")])
             rec = {"t": x["t"], "kr": x["kr"], "group": g["name"], "mfi": m, "chg": x.get("chg"),
-                   "chg1m": x.get("chg1m"), "news_n": news_n, "thin": news_n <= THIN_NEWS,
-                   "severe": sev, "minor": mnr}
+                   "chg1m": x.get("chg1m"), "news_n": news_n, "thin": (news_n <= THIN_NEWS) and not etf,
+                   "etf": etf, "severe": sev, "minor": mnr}
             (flagged if sev else clean).append(rec)
     clean.sort(key=lambda r: r["mfi"])
     flagged.sort(key=lambda r: r["mfi"])

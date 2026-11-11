@@ -71,6 +71,16 @@
    ]
   },
   {
+   "name": "ETF",
+   "news_query": "AI technology ETF",
+   "tickers": [
+    {
+     "t": "AIQ",
+     "kr": "글로벌X AI&테크 ETF"
+    }
+   ]
+  },
+  {
    "name": "빅테크",
    "news_query": "hyperscaler AI capex Microsoft Google Meta Amazon data center",
    "tickers": [

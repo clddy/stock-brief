@@ -75,7 +75,7 @@ def build_message(data):
             if ov["clean"]:
                 for r in ov["clean"]:
                     new = "🆕 " if r.get("new") else ""
-                    thin = " · 뉴스 적음" if r.get("thin") else ""
+                    thin = " · 뉴스 적음" if r.get("thin") else (" · ETF" if r.get("etf") else "")
                     lines.append(f"{new}<b>{esc(r['t'])}</b> {esc(r['kr'])} · MFI {r['mfi']:.1f} · "
                                  f"1개월 {r['chg1m']:+.1f}%{thin}")
                     seen_k = set()

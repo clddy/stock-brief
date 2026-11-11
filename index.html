@@ -150,6 +150,9 @@
   .mfichart { display: block; width: 100%; height: 110px; margin-top: 6px; }
   .pxchart { display: block; width: 100%; height: 210px; margin-top: 6px; cursor: crosshair; }
   .pxcap { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink3); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .heldline { font-size: 13px; color: var(--ink2); margin: -2px 0 6px; font-variant-numeric: tabular-nums; }
+  .heldline b { color: var(--ink); }
+  .etfgo { color: var(--accent); font-weight: 700; }
   .ichibtn { float: right; appearance: none; border: 1px solid var(--line); background: var(--card); color: var(--ink2); font: inherit; font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 99px; cursor: pointer; }
   .ichibtn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
   .ichileg { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--ink2); margin-top: 6px; }
@@ -373,7 +376,7 @@ function seriesOf(x) {
 const chgOf = x => { const v = x["chg" + PERIOD]; return v == null ? null : v; };
 // ---- MFI(14): 80↑ 과매수(빨강) · 20↓ 과매도(파랑)
 const mfiZone = v => v == null ? "" : v >= 80 ? "hot" : v <= 20 ? "cold" : "";
-const mfiWord = v => v == null ? "" : v >= 80 ? "과매수" : v <= 20 ? "과매도" : "중립";
+const mfiWord = v => v == null ? "" : v >= 80 ? "과매수" : v <= 20 ? "과매도" : v <= 25 ? "과매도 근접(알림 기준 25↓)" : "중립";
 // ---- 뉴스 시각: "3시간 전/2일 전", 48시간 이내면 새 뉴스
 const newsAge = iso => { const t = Date.parse(iso || ""); return isNaN(t) ? null : (Date.now() - t) / 3600e3; };
 const agoTxt = iso => { const h = newsAge(iso); if (h == null) return ""; if (h < 1) return "방금"; if (h < 24) return Math.floor(h) + "시간 전"; return Math.floor(h / 24) + "일 전"; };
@@ -417,11 +420,20 @@ const FAVS = new Set((() => {
   try { cur = JSON.parse(localStorage.getItem("sb_favs") || "[]"); } catch (e) {}
   const set = new Set(Array.isArray(cur) ? cur : []);
   try {
-    // 아직 시드한 적 없으면 보유종목을 기존 즐겨찾기에 합침(수동 변경은 이후 존중)
-    if (Array.isArray(window.DEFAULT_FAVS) && !localStorage.getItem("sb_favs_seeded")) {
-      window.DEFAULT_FAVS.forEach(t => set.add(t));
-      localStorage.setItem("sb_favs_seeded", "1");
-      localStorage.setItem("sb_favs", JSON.stringify([...set]));
+    // 보유종목 동기화: favorites.js 의 HOLDINGS_REV 가 바뀌면 직전 시드 중 더 이상 보유하지 않는 종목은
+    // 별표 해제, 새 보유종목은 추가. 사용자가 직접 찍은 별표(시드에 없던 종목)는 건드리지 않는다.
+    if (Array.isArray(window.DEFAULT_FAVS)) {
+      const rev = window.HOLDINGS_REV || "1";
+      let prev = null;
+      try { prev = JSON.parse(localStorage.getItem("sb_favs_seed") || "null"); } catch (e) {}
+      if (!prev || prev.rev !== rev) {
+        const old = prev ? prev.list
+          : (localStorage.getItem("sb_favs_seeded") ? (window.PREV_DEFAULT_FAVS || []) : []);
+        old.forEach(t => { if (!window.DEFAULT_FAVS.includes(t)) set.delete(t); });
+        window.DEFAULT_FAVS.forEach(t => set.add(t));
+        localStorage.setItem("sb_favs_seed", JSON.stringify({ rev, list: window.DEFAULT_FAVS }));
+        localStorage.setItem("sb_favs", JSON.stringify([...set]));
+      }
     }
   } catch (e) {}
   return set;
@@ -448,7 +460,7 @@ function renderOversold() {
     const minor = r.minor.filter((m, i, a) => a.findIndex(z => z[0] === m[0]) === i)
       .map(([k, t]) => `<div class="ovminor">참고 · ${k}: <span>${t}</span></div>`).join("");
     return `<div class="ovrow" data-goto="${r.t}">${r.new ? '<span class="newb">NEW</span>' : ""}<span class="tkr">${r.t}</span>${starHTML(r.t)}<span class="kr">${r.kr}</span>
-      <span class="nums">MFI <span class="mfi cold">${mfiTxt(r.mfi)}</span> · 1개월 <b class="${(r.chg1m ?? 0) >= 0 ? "u" : "d"}" style="color:var(--${(r.chg1m ?? 0) >= 0 ? "up" : "down"})">${chgTxt(r.chg1m)}</b> · 뉴스 ${r.news_n}건</span>${r.thin ? '<span class="thin">(뉴스 적어 근거 약함)</span>' : ""}${minor}</div>`;
+      <span class="nums">MFI <span class="mfi cold">${mfiTxt(r.mfi)}</span> · 1개월 <b class="${(r.chg1m ?? 0) >= 0 ? "u" : "d"}" style="color:var(--${(r.chg1m ?? 0) >= 0 ? "up" : "down"})">${chgTxt(r.chg1m)}</b> · ${r.etf ? "ETF(구성종목 기준)" : `뉴스 ${r.news_n}건`}</span>${r.thin ? '<span class="thin">(뉴스 적어 근거 약함)</span>' : ""}${minor}</div>`;
   }).join("") || `<div class="ovrow" style="cursor:default;color:var(--ink3)">지금은 해당 종목이 없습니다.</div>`;
   const ex = ov.flagged.length ? `제외(악재): ${ov.flagged.map(r => `<b>${r.t}</b> ${r.severe[0][0]}`).join(" · ")}<br>` : "";
   el.innerHTML = `<div class="ovbox"><div class="ovh"><b>MFI 과매도 · 뚜렷한 악재 없음</b><small>MFI(14) ≤ ${ov.mfi_max} · 최근 7일 종목 뉴스 제목 기준 · ${ov.asof || ""}</small></div>${rows}
@@ -957,6 +969,8 @@ function drawPriceChart(tk) {
   loadOHLC(tk).then(paint).catch(() => paint(null));
 }
 modal.addEventListener("click", e => {
+  const go = e.target.closest(".etfgo");
+  if (go) { e.preventDefault(); openDetail(go.dataset.goto); return; }
   const ib = e.target.closest("#ichiBtn"), bbb = e.target.closest("#bbBtn");
   if (!ib && !bbb) return;
   if (ib) {
@@ -1006,7 +1020,18 @@ function openDetail(tk) {
     <button class="mclose" onclick="closeDetail()">✕</button>
   </div><div class="mbody">`;
 
+  const held = (window.HOLDINGS || {})[tk];
+  if (held) h += `<div class="heldline">보유 <b>${held.toLocaleString()}주</b> · 평가액 <b>$${fmt(held * x.price)}</b> · 오늘 ${x.chg >= 0 ? "+" : "−"}$${fmt(Math.abs(held * x.price * x.chg / (100 + x.chg)))}</div>`;
   h += priceShellHTML(x);
+  if (x.etf) {
+    const e = x.etf, tops = e.top || [];
+    h += `<h4>ETF 구성 <small>${e.name} · 운용자산 ${cur(e.aum)}${e.er != null ? ` · 총보수 ${e.er}%` : ""}</small></h4>`;
+    if (tops.length) {
+      const mx = Math.max(...tops.map(r => r[2])) || 1, sum = tops.reduce((a, r) => a + r[2], 0);
+      h += tops.map(([sym, nm, pct]) => `<div class="segrow"><div class="seglabel">${byT[sym] ? `<a href="#" data-goto="${sym}" class="etfgo">${sym}</a>` : sym}<span class="segen">${nm}</span></div><div class="segbar"><i style="width:${(pct / mx * 100).toFixed(1)}%;background:var(--accent)"></i></div><div class="segval"><b>${pct.toFixed(2)}%</b></div></div>`).join("");
+      h += `<div style="font-size:11px;color:var(--ink3);margin-top:6px">상위 ${tops.length}개 합계 ${sum.toFixed(1)}%. 파란 티커는 워치리스트 종목(누르면 이동).</div>`;
+    }
+  }
   h += mfiHTML(x);
   const segH = segmentHTML(tk);
   h += segH;
@@ -1027,7 +1052,7 @@ function openDetail(tk) {
     if (an && (rev === 0 || rev == null) && net != null) {
       h += `<h4>이익 구조 <small>FY${an.periods[i]} 기준</small></h4><div class="fin-missing">아직 매출이 발생하지 않은 단계의 기업입니다. 최근 회계연도 ${net < 0 ? "순손실" : "순이익"} ${cur(Math.abs(net))}.</div>`;
     } else {
-      h += `<h4>이익 구조</h4><div class="fin-missing">이 종목의 손익 데이터가 아직 없습니다.</div>`;
+      if (!x.etf) h += `<h4>이익 구조</h4><div class="fin-missing">이 종목의 손익 데이터가 아직 없습니다.</div>`;   // ETF는 재무제표 없음 → 생략
     }
   }
 
