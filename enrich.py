@@ -10,6 +10,7 @@ crawler.py 가 만든 data.json 을 읽어 모든 뉴스 제목을 모아
 """
 import json
 import sys
+import time
 import traceback
 from datetime import datetime
 from pathlib import Path
@@ -19,6 +20,8 @@ import requests
 BASE = Path(__file__).resolve().parent
 LOG = BASE / "crawler.log"
 CHUNK = 25          # LLM 한 번에 처리할 헤드라인 수
+CACHE = BASE / "enrich_cache.json"   # 제목 → {ko, why, engine, seen} (뉴스가 7일간 반복돼 재번역 방지)
+CACHE_DAYS = 14                      # 이 기간 동안 안 보인 제목은 캐시에서 정리
 CLAUDE_MODEL = "claude-opus-4-8"
 
 
@@ -109,22 +112,70 @@ def llm_all(titles, fn):
     return out
 
 
+GT_URL = "https://translate.googleapis.com/translate_a/single"
+GT_BATCH = 30        # 한 요청에 묶는 제목 수(줄바꿈으로 이어서 번역 → 요청 수 1/30)
+GT_PAUSE = 1.0       # 요청 사이 간격(초) — 무료 엔드포인트 차단(429) 방지
+
+
+class RateLimited(Exception):
+    pass
+
+
+def _gt(text):
+    """구글 무료 번역 1회. 429면 RateLimited."""
+    r = requests.get(GT_URL, params={"client": "gtx", "sl": "en", "tl": "ko", "dt": "t", "q": text},
+                     timeout=20, headers={"User-Agent": "Mozilla/5.0"})
+    if r.status_code == 429:
+        raise RateLimited()
+    r.raise_for_status()
+    return "".join(seg[0] for seg in r.json()[0] if seg and seg[0])
+
+
 def google_translate(titles):
-    """무료 구글 번역 폴백 — [{ko, why:''}]. 실패 항목은 원문 유지."""
-    out = []
-    sess = requests.Session()
-    for t in titles:
-        ko = t
-        try:
-            r = sess.get(
-                "https://translate.googleapis.com/translate_a/single",
-                params={"client": "gtx", "sl": "en", "tl": "ko", "dt": "t", "q": t},
-                timeout=15, headers={"User-Agent": "Mozilla/5.0"})
-            r.raise_for_status()
-            ko = "".join(seg[0] for seg in r.json()[0])
-        except Exception:
-            pass
-        out.append({"ko": ko, "why": ""})
+    """무료 구글 번역 폴백 — [{ko, why:'', ok}] (입력 순서 유지).
+
+    제목 GT_BATCH 개를 줄바꿈으로 묶어 한 번에 번역하고 줄 단위로 다시 나눈다.
+    줄 수가 안 맞으면 그 묶음만 한 건씩 번역. 429(차단)를 받으면 1회 대기 후 재시도,
+    또 막히면 나머지는 원문 유지(ok=False → 캐시 안 됨 → 다음 실행 때 재시도).
+    """
+    out = [{"ko": t, "why": "", "ok": False} for t in titles]
+    blocked = False
+
+    def call(text):
+        nonlocal blocked
+        for wait in (0, 30):
+            if blocked:
+                return None
+            if wait:
+                time.sleep(wait)
+            try:
+                res = _gt(text)
+                time.sleep(GT_PAUSE)
+                return res
+            except RateLimited:
+                continue
+            except Exception:
+                return None
+        blocked = True
+        return None
+
+    for s in range(0, len(titles), GT_BATCH):
+        if blocked:
+            break
+        chunk = [t.replace("\n", " ") for t in titles[s:s + GT_BATCH]]
+        res = call("\n".join(chunk))
+        lines = [x.strip() for x in res.split("\n")] if res else []
+        if res and len(lines) == len(chunk):
+            for i, ko in enumerate(lines):
+                if ko:
+                    out[s + i] = {"ko": ko, "why": "", "ok": True}
+        else:
+            for i, t in enumerate(chunk):
+                ko = call(t)
+                if ko:
+                    out[s + i] = {"ko": ko, "why": "", "ok": True}
+    if blocked:
+        log(f"free translate: 429 차단 — {sum(1 for o in out if not o['ok'])}건 원문 유지, 다음 실행 때 재시도")
     return out
 
 
@@ -150,7 +201,7 @@ def enrich(titles, cfg):
             log(f"claude fail ({type(e).__name__}: {e}), 무료 번역으로")
 
     arr = google_translate(titles)
-    log(f"free translate ok ({len(arr)})")
+    log(f"free translate ok ({sum(1 for a in arr if a.get('ok'))}/{len(arr)})")
     return arr, "translate"
 
 
@@ -167,8 +218,34 @@ def main():
     if cpath.exists():
         cfg = json.loads(cpath.read_text(encoding="utf-8"))
 
-    arr, engine = enrich(titles, cfg)
-    mapping = {titles[i]: arr[i] for i in range(min(len(arr), len(titles)))}
+    # 캐시: 같은 엔진 품질 이상으로 이미 처리한 제목은 재사용. LLM 키가 생기면 무료번역분은 다시 처리(요약 붙이기 위해)
+    llm_on = bool((cfg.get("gemini_api_key") or "").strip() or (cfg.get("anthropic_api_key") or "").strip())
+    try:
+        cache = json.loads(CACHE.read_text(encoding="utf-8"))
+    except Exception:
+        cache = {}
+    today = datetime.now().strftime("%Y-%m-%d")
+    def reusable(c):
+        return c and c.get("ko") and (c.get("engine") != "translate" or not llm_on)
+    todo = [t for t in titles if not reusable(cache.get(t))]
+    log(f"cache hit {len(titles) - len(todo)}, to process {len(todo)}")
+
+    engine = "cache"
+    if todo:
+        arr, engine = enrich(todo, cfg)
+        for i, t in enumerate(todo[:len(arr)]):
+            r = arr[i]
+            if engine == "translate" and not r.get("ok", True):
+                continue                     # 번역 실패분은 캐시하지 않음(다음날 재시도)
+            cache[t] = {"ko": r.get("ko", ""), "why": r.get("why", ""), "engine": engine}
+    for t in titles:
+        if t in cache:
+            cache[t]["seen"] = today
+    cutoff = datetime.now().timestamp() - CACHE_DAYS * 86400
+    cache = {k: v for k, v in cache.items()
+             if datetime.strptime(v.get("seen", today), "%Y-%m-%d").timestamp() >= cutoff}
+    CACHE.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+    mapping = {t: cache[t] for t in titles if t in cache}
 
     for it in all_items:
         m = mapping.get(it.get("title", "").strip())

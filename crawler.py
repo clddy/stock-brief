@@ -9,7 +9,9 @@ import concurrent.futures
 import json
 import re
 import sys
+import time
 import traceback
+import unicodedata
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -20,9 +22,14 @@ import yfinance as yf
 BASE = Path(__file__).resolve().parent
 LOG = BASE / "crawler.log"
 
-MOVER_THRESHOLD = 2.5   # |등락률| 이 이 값 이상이면 개별 뉴스 수집
-MOVER_NEWS_MAX = 20     # 개별 뉴스 수집 최대 종목 수
-NEWS_PER_ITEM = 3       # 종목당 뉴스 개수
+NEWS_PER_ITEM = 5       # 종목당 뉴스 개수(전 종목 수집)
+TICKER_NEWS_H = 168     # 종목 뉴스 최대 나이(시간) = 7일
+NEWS_WORKERS = 6        # 종목 뉴스 동시 요청 수
+NAMES = BASE / "names.json"   # 티커 → 영문 회사명 캐시(뉴스 검색어용)
+# 검색어로 쓰기 나쁜 공식명은 직접 지정
+NAME_OVERRIDE = {"SPCX": "SpaceX", "BRK-B": "Berkshire Hathaway", "GOOGL": "Alphabet",
+                 "META": "Meta Platforms", "EL": "Estee Lauder", "GE": "GE Aerospace",
+                 "MOG-A": "Moog", "TSM": "TSMC", "ASML": "ASML"}
 SECTOR_NEWS_N = 6       # 섹터/테마당 뉴스 개수
 NEWS_MAX_AGE_H = 48     # 종목 뉴스 최대 나이(시간)
 SECTOR_MAX_AGE_H = 72   # 섹터/테마 뉴스 최대 나이(시간)
@@ -185,6 +192,81 @@ def fetch_news(query, limit=NEWS_PER_ITEM, max_age_h=NEWS_MAX_AGE_H):
     return _parse_rss(r.text, limit, max_age_h)
 
 
+_SUFFIX = re.compile(
+    r"(,?\s+(inc\.?|incorporated|corporation|corp\.?|company|companies|co\.?|plc|pbc|"
+    r"ltd\.?|limited|n\.v\.|s\.a\.|new|class [a-c]|\(the\)|\(t.*))+\s*$", re.I)
+
+
+def clean_name(n):
+    n = re.sub(r"^the\s+", "", (n or "").strip(), flags=re.I)
+    prev = None
+    while prev != n:                       # "Estee Lauder Companies, Inc. (T" 처럼 겹친 접미사
+        prev, n = n, _SUFFIX.sub("", n).strip().rstrip(",")
+    return n
+
+
+def load_names(tickers):
+    """names.json 캐시 → {ticker: 검색용 회사명}. 없는 티커만 yfinance info 로 채운다."""
+    try:
+        raw = json.loads(NAMES.read_text(encoding="utf-8"))
+    except Exception:
+        raw = {}
+    miss = [t for t in tickers if not raw.get(t)]
+    if miss:
+        def one(t):
+            try:
+                i = yf.Ticker(t).info
+                return t, i.get("shortName") or i.get("longName") or ""
+            except Exception:
+                return t, ""
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+            for t, n in ex.map(one, miss):
+                if n:
+                    raw[t] = n
+        NAMES.write_text(json.dumps(raw, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
+        log(f"names: +{sum(1 for t in miss if raw.get(t))} fetched")
+    return {t: NAME_OVERRIDE.get(t) or clean_name(raw.get(t, "")) or t for t in tickers}
+
+
+def _norm(s):
+    return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()
+
+
+# 시세 조회 페이지·종목 프로필 등 뉴스가 아닌 결과 + 기관 보유 변동(13F) 자동 기사
+_JUNK = re.compile(r"(stock price, news, quote|quote price and forecast|stock quote|price, news, quote|"
+                   r"stock price, quote|quote, news & history|symbol__|stock price today|share price & news|"
+                   r"historical prices|stock chart|"
+                   r"(shares?|stock|stake|position|holdings?) (purchased|sold|acquired|bought|trimmed|raised|lowered|cut|boosted|reduced) by|"
+                   r"(acquires|buys|sells|purchases) (new )?(shares|stake|position) (of|in)|"
+                   r"has \$[\d.,]+ (million|billion|thousand) (stock )?(position|stake|holdings))", re.I)
+
+
+def ticker_news_one(t, name):
+    """회사명으로 최근 7일 뉴스 검색 → 시세페이지·중복 제거 → 제목에 회사명/티커 있는 것만, 최신순 NEWS_PER_ITEM 개."""
+    items = []
+    for attempt in range(2):
+        try:
+            items = fetch_news(f'"{name}" stock when:7d', limit=15, max_age_h=TICKER_NEWS_H)
+            break
+        except Exception:
+            time.sleep(1.5)
+    seen, clean = set(), []
+    for it in items:
+        k = _norm(it["title"])
+        if _JUNK.search(it["title"]) or k in seen:
+            continue
+        seen.add(k)
+        clean.append(it)
+    key = _norm(name.split()[0]) if name else ""
+    alts = [re.escape(key)] if key else []
+    if len(t) >= 3:
+        alts.append(re.escape(t.lower()))
+    pat = re.compile(r"\b(" + "|".join(alts) + r")\b") if alts else None
+    picked = [it for it in clean if pat and pat.search(_norm(it["title"]))]
+    picked.sort(key=lambda it: it.get("time") or "", reverse=True)
+    return t, picked[:NEWS_PER_ITEM]
+
+
 def main():
     log("=== crawl start ===")
     cfg = json.loads((BASE / "tickers.json").read_text(encoding="utf-8"))
@@ -209,20 +291,15 @@ def main():
             quotes[t]["mcap"] = mc
     log(f"mcaps ok: {sum(1 for v in mcaps.values() if v)}/{len(mcaps)}")
 
-    # 급등락 종목 개별 뉴스
-    movers = sorted(
-        (t for t, q in quotes.items() if abs(q["chg"]) >= MOVER_THRESHOLD),
-        key=lambda t: -abs(quotes[t]["chg"]),
-    )[:MOVER_NEWS_MAX]
+    # 종목별 뉴스 — 전 종목, 영문 회사명으로 최근 7일
+    names = load_names(list(quotes.keys()))
     ticker_news = {}
-    for t in movers:
-        try:
-            items = fetch_news(f'"{t}" stock', limit=NEWS_PER_ITEM)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=NEWS_WORKERS) as ex:
+        for t, items in ex.map(lambda t: ticker_news_one(t, names[t]), list(quotes.keys())):
             if items:
                 ticker_news[t] = items
-        except Exception as e:
-            log(f"  news fail {t}: {e}")
-    log(f"mover news: {len(ticker_news)} tickers")
+    log(f"ticker news: {len(ticker_news)}/{len(quotes)} tickers, "
+        f"{sum(len(v) for v in ticker_news.values())} items")
 
     # 섹터(그룹) 뉴스 — 주가에 영향 줄 만한 섹터 단위 뉴스·발표
     group_news = {}
