@@ -145,6 +145,9 @@
   .pill.d { color: var(--down); background: var(--down-bg); }
   .spark { display: block; width: 100%; height: 44px; margin-top: 8px; cursor: crosshair; }
   .card .m1 { font-size: 11px; color: var(--ink3); margin-top: 4px; }
+  .sortbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 28px 0 -8px; }
+  .sortbar .sblabel { font-size: 13px; font-weight: 600; color: var(--ink2); }
+  .card .skv { float: right; color: var(--ink2); font-variant-numeric: tabular-nums; }
   .mfi { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink2); }
   .mfi.hot { color: var(--up); } .mfi.cold { color: var(--down); }
   .mfichart { display: block; width: 100%; height: 110px; margin-top: 6px; }
@@ -340,6 +343,17 @@
   <h2>관심 테마 뉴스 <small>최근 72시간 · Google News</small></h2>
   <div class="themes" id="themes"></div>
   <div id="favEmpty" class="hidden" style="text-align:center;color:var(--ink3);padding:48px 20px;font-size:14px">즐겨찾기한 종목이 없습니다.<br>카드나 상세화면의 별(<span style="color:#FFCC00">★</span>)을 눌러 추가하세요.</div>
+  <div id="sortBar" class="sortbar">
+    <span class="sblabel">섹터 안 정렬</span>
+    <div class="seg" id="sortSeg">
+      <button data-s="mcap" class="on">시가총액</button>
+      <button data-s="chgp" id="sortChgp">1개월 등락률</button>
+      <button data-s="chg">오늘 등락률</button>
+      <button data-s="mfi">MFI</button>
+      <button data-s="vol" title="최근 5거래일 평균 거래량(주)">거래량</button>
+    </div>
+    <button id="sortDir" class="favbtn" title="큰 순 / 작은 순 바꾸기">큰 순 ↓</button>
+  </div>
   <div id="cardsView"></div>
   <div id="tableView" class="hidden" style="margin-top:30px"></div>
   <div id="newsView" class="hidden"></div>
@@ -554,7 +568,7 @@ function cardHTML(x) {
     <div class="top"><span class="tkr">${x.t}</span><span class="kr">${x.kr}</span>${hasFresh(x.t) ? '<span class="newsdot" title="급등락 + 24시간 내 뉴스"></span>' : ""}${starHTML(x.t)}</div>
     <div class="row2"><span class="price">$${fmt(x.price)}</span><span class="pill ${sign(x.chg)==="d"?"d":"u"}" style="${x.chg===0?"color:var(--ink2);background:none":""}">${chgTxt(x.chg)}</span></div>
     ${sparkSVG(x)}
-    <div class="m1">${perLabel()} <b class="${(chgOf(x) ?? 0)>=0?"u":"d"}">${chgTxt(chgOf(x))}</b>${x.mfi != null ? ` · MFI <span class="mfi ${mfiZone(x.mfi)}" title="MFI(14) ${mfiWord(x.mfi)}">${Math.round(x.mfi)}</span>` : ""}<span style="float:right;color:var(--ink3)">재무·뉴스 ›</span></div>
+    <div class="m1">${perLabel()} <b class="${(chgOf(x) ?? 0)>=0?"u":"d"}">${chgTxt(chgOf(x))}</b>${x.mfi != null ? ` · MFI <span class="mfi ${mfiZone(x.mfi)}" title="MFI(14) ${mfiWord(x.mfi)}">${Math.round(x.mfi)}</span>` : ""}${sortValTxt(x) ? `<span class="skv">${sortValTxt(x)}</span>` : `<span style="float:right;color:var(--ink3)">재무·뉴스 ›</span>`}</div>
   </div>`;
 }
 function groupNewsHTML(name) {
@@ -562,9 +576,26 @@ function groupNewsHTML(name) {
   if (!items || !items.length) return "";
   return `<div class="gnews">${items.map(newsAnchor).join("")}</div>`;
 }
+// ---- 섹터 안 정렬: 시가총액(기본) / 기간 등락률 / 오늘 등락률 / MFI / 거래량, 큰 순·작은 순
+//      대시보드를 켤 때마다 시가총액·큰 순으로 시작(선택을 저장하지 않음 — 2026-11-14 사용자 지시)
+let CSORT = { key: "mcap", dir: "desc" };
+const sortVal = (x, k) => k === "chgp" ? chgOf(x) : x[k];
+function cardCmp(a, b) {
+  const va = sortVal(a, CSORT.key), vb = sortVal(b, CSORT.key);
+  if (va == null && vb == null) return 0;
+  if (va == null) return 1;                 // 값 없는 종목은 방향과 무관하게 맨 뒤
+  if (vb == null) return -1;
+  return CSORT.dir === "desc" ? vb - va : va - vb;
+}
+// 카드 오른쪽 아래에 지금 정렬 기준 값 표시(시총·거래량은 카드에 원래 없는 값이라)
+function sortValTxt(x) {
+  if (CSORT.key === "mcap") return x.mcap != null ? `${x.etf ? "운용자산" : "시총"} ${cur(x.mcap)}` : "";
+  if (CSORT.key === "vol") return x.vol != null ? `거래량 ${numFmt(x.vol)}` : "";
+  return "";
+}
 function renderCards() {
   $("#cardsView").innerHTML = D.groups.map(g => {
-    const ts = [...g.tickers].sort((a,b) => b.chg - a.chg);
+    const ts = [...g.tickers].sort(cardCmp);
     return `<section class="grp"><h2>${g.name} <small>${g.tickers.length}종목 · 섹터 뉴스</small></h2>${groupNewsHTML(g.name)}<div class="grid">${ts.map(cardHTML).join("")}</div></section>`;
   }).join("");
 }
@@ -621,7 +652,7 @@ const SORT_COLS = [
   {key:"price", label:"종가"}, {key:"chg", label:"전일比"},
   {key:"chg1m", label:"1개월"}, {key:"chg3m", label:"3개월"},
   {key:"chg6m", label:"6개월"}, {key:"chg1y", label:"1년"}, {key:"mfi", label:"MFI(14)"},
-  {key:"mcap", label:"시가총액"}, {key:"vol", label:"거래량"},
+  {key:"mcap", label:"시가총액"}, {key:"vol", label:"거래량(5일평균)"},
 ];
 const STR_KEYS = new Set(["t", "kr", "g"]);
 let sortState = { key: "chg", dir: "desc" };
@@ -677,8 +708,27 @@ $("#viewSeg").addEventListener("click", e => {
   $("#cardsView").classList.toggle("hidden", b.dataset.v !== "cards");
   $("#tableView").classList.toggle("hidden", b.dataset.v !== "table");
   $("#newsView").classList.toggle("hidden", b.dataset.v !== "news");
+  $("#sortBar").classList.toggle("hidden", b.dataset.v !== "cards");
   applyFilter();
 });
+
+// ---- 섹터 안 정렬 버튼
+function syncSortUI() {
+  document.querySelectorAll("#sortSeg button").forEach(b => b.classList.toggle("on", b.dataset.s === CSORT.key));
+  $("#sortChgp").textContent = `${perLabel()} 등락률`;
+  $("#sortDir").textContent = CSORT.dir === "desc" ? "큰 순 ↓" : "작은 순 ↑";
+}
+$("#sortSeg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.s === CSORT.key) CSORT.dir = CSORT.dir === "desc" ? "asc" : "desc";
+  else CSORT = { key: b.dataset.s, dir: "desc" };
+  syncSortUI(); renderCards(); applyFilter();
+});
+$("#sortDir").addEventListener("click", () => {
+  CSORT.dir = CSORT.dir === "desc" ? "asc" : "desc";
+  syncSortUI(); renderCards(); applyFilter();
+});
+syncSortUI();
 
 // ---- 기간 토글 (카드 스파크라인/등락률: 1개월 ↔ 3개월)
 $("#perSeg").addEventListener("click", e => {
@@ -686,6 +736,7 @@ $("#perSeg").addEventListener("click", e => {
   document.querySelectorAll("#perSeg button").forEach(x => x.classList.toggle("on", x === b));
   PERIOD = b.dataset.p;
   try { localStorage.setItem("sb_period", PERIOD); } catch (err) {}
+  syncSortUI();
   renderCards();
   renderNews();
   applyFilter();

@@ -137,7 +137,7 @@ def fetch_quotes(tickers):
             out[t] = rec
             try:
                 vols = df[t]["Volume"].dropna()
-                out[t]["vol"] = int(vols.mean()) if len(vols) else None
+                out[t]["vol"] = int(vols.tail(5).mean()) if len(vols) else None   # 최근 5거래일 평균 (2026-11-14 사용자 지정)
             except Exception:
                 out[t]["vol"] = None
         except Exception as e:
